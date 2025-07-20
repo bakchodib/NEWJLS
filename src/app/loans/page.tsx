@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, Eye, FileText, Trash2 } from 'lucide-react';
+import { PlusCircle, Eye, FileText, Trash2, Landmark, Wallet, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -21,13 +21,41 @@ export default function LoansPage() {
   const { role } = useAuth();
   const { toast } = useToast();
   
+  const [totalDisbursed, setTotalDisbursed] = useState(0);
+  const [netDisbursed, setNetDisbursed] = useState(0);
+  const [toBeCollected, setToBeCollected] = useState(0);
+  
   const fetchLoans = async () => {
     try {
         setIsLoading(true);
         const allLoans = await getLoans();
+        const relevantLoans = allLoans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
+
         // In a real app, customer's view would be filtered by their ID.
         // For this simulation, customers see all loans for demo purposes.
-        setLoans(allLoans.filter(l => l.status === 'Disbursed' || l.status === 'Closed'));
+        setLoans(relevantLoans);
+        
+        // Calculate stats only if admin
+        if (role === 'admin') {
+          const totalDisbursedAmount = relevantLoans.reduce((acc, loan) => acc + loan.amount, 0);
+
+          const netDisbursedAmount = relevantLoans.reduce((acc, loan) => {
+              const processingFeeAmount = loan.amount * (loan.processingFee / 100);
+              const netAmount = loan.amount - processingFeeAmount;
+              return acc + netAmount;
+          }, 0);
+
+          const activeLoans = relevantLoans.filter(l => l.status === 'Disbursed');
+          const toBeCollectedAmount = activeLoans
+              .flatMap(loan => loan.emis)
+              .filter(emi => emi.status === 'Pending')
+              .reduce((acc, emi) => acc + emi.amount, 0);
+
+          setTotalDisbursed(totalDisbursedAmount);
+          setNetDisbursed(netDisbursedAmount);
+          setToBeCollected(toBeCollectedAmount);
+        }
+
     } catch (error) {
         toast({ title: "Error", description: "Failed to fetch loans.", variant: "destructive" });
     } finally {
@@ -37,7 +65,7 @@ export default function LoansPage() {
 
   useEffect(() => {
     fetchLoans();
-  }, []);
+  }, [role]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -95,6 +123,41 @@ export default function LoansPage() {
             </div>
         )}
       </div>
+
+       {role === 'admin' && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Disbursed</CardTitle>
+              <Landmark className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{totalDisbursed.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Gross principal amount</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Net Disbursed</CardTitle>
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{netDisbursed.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">After processing fees</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">To Be Collected</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{toBeCollected.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">From all pending EMIs</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -174,3 +237,4 @@ export default function LoansPage() {
     </div>
   );
 }
+
