@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { addCustomer, uploadFile } from '@/lib/storage';
+import { addCustomer } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -15,17 +15,28 @@ import { useAuth } from '@/contexts/auth-context';
 import { useEffect, useState } from 'react';
 import { Separator } from '@/components/ui/separator';
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+const fileSchema = z.any()
+  .refine(files => files?.length > 0, 'Photo is required.')
+  .refine(files => files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+  .refine(
+    files => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type),
+    ".jpg, .jpeg, .png and .webp files are accepted."
+  );
+
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   phone: z.string().regex(/^\d{10}$/, { message: 'Phone number must be 10 digits.' }),
   address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
-  customerPhoto: z.any().refine(files => files?.length > 0, 'Customer photo is required.'),
+  customerPhoto: fileSchema,
   
   // KYC Fields
   aadharNumber: z.string().regex(/^\d{12}$/, { message: 'Aadhar number must be 12 digits.' }),
-  aadharImage: z.any().refine(files => files?.length > 0, 'Aadhar photo is required.'),
+  aadharImage: fileSchema,
   panNumber: z.string().min(5, {message: 'PAN/Voter ID must be at least 5 characters.'}),
-  panImage: z.any().refine(files => files?.length > 0, 'PAN/Voter ID photo is required.'),
+  panImage: fileSchema,
 
   // Guarantor Fields
   guarantorName: z.string().min(2, { message: 'Guarantor name must be at least 2 characters.' }),
@@ -61,28 +72,33 @@ export default function RegisterCustomerPage() {
     }
   }, [role, loading, router, toast]);
 
+  const fileToDataUri = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+      });
+  }
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    toast({ title: 'Uploading Images...', description: 'Please wait while we upload the documents.' });
+    toast({ title: 'Processing Images...', description: 'Please wait while we prepare the documents.' });
 
     try {
-        const customerPhotoFile = values.customerPhoto[0];
-        const aadharImageFile = values.aadharImage[0];
-        const panImageFile = values.panImage[0];
-
-        const customerPhotoUrl = await uploadFile(customerPhotoFile, `customer_photos/${Date.now()}_${customerPhotoFile.name}`);
-        const aadharImageUrl = await uploadFile(aadharImageFile, `aadhar_images/${Date.now()}_${aadharImageFile.name}`);
-        const panImageUrl = await uploadFile(panImageFile, `pan_images/${Date.now()}_${panImageFile.name}`);
+        const customerPhotoDataUri = await fileToDataUri(values.customerPhoto[0]);
+        const aadharImageDataUri = await fileToDataUri(values.aadharImage[0]);
+        const panImageDataUri = await fileToDataUri(values.panImage[0]);
 
         const newCustomer = {
           name: values.name,
           phone: values.phone,
           address: values.address,
-          customerPhoto: customerPhotoUrl,
+          customerPhoto: customerPhotoDataUri,
           aadharNumber: values.aadharNumber,
-          aadharImage: aadharImageUrl,
+          aadharImage: aadharImageDataUri,
           panNumber: values.panNumber,
-          panImage: panImageUrl,
+          panImage: panImageDataUri,
           guarantorName: values.guarantorName,
           guarantorPhone: values.guarantorPhone,
         };
@@ -97,8 +113,8 @@ export default function RegisterCustomerPage() {
 
     } catch (error) {
         toast({
-            title: 'Upload Failed',
-            description: (error as Error).message || 'Could not upload images. Please try again.',
+            title: 'Registration Failed',
+            description: (error as Error).message || 'Could not save customer details. Please try again.',
             variant: 'destructive',
         });
     } finally {

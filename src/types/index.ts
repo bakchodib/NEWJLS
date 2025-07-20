@@ -5,13 +5,13 @@ export interface Customer {
   name: string;
   phone: string;
   address: string;
-  customerPhoto: string; // URL or base64 string
+  customerPhoto: string; // Base64 data URI
   
   // KYC Details
   aadharNumber: string;
-  aadharImage: string; // URL or base64 string
+  aadharImage: string; // Base64 data URI
   panNumber: string;
-  panImage: string; // URL or base64 string
+  panImage: string; // Base64 data URI
 
   guarantorName: string;
   guarantorPhone: string;

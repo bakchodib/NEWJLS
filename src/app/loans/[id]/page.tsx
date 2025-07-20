@@ -65,42 +65,6 @@ export default function LoanDetailsPage() {
     }
   }, [id, fetchLoanDetails]);
 
-   const imageToDataUri = async (url: string): Promise<string | null> => {
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Direct fetch failed with status: ' + response.status);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            return new Promise((resolve, reject) => {
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        } catch (directError) {
-            console.warn('Direct image fetch failed, trying proxy. Error:', directError);
-            try {
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-                const proxyResponse = await fetch(proxyUrl);
-                if (!proxyResponse.ok) throw new Error('Proxy fetch failed with status: ' + proxyResponse.status);
-                const blob = await proxyResponse.blob();
-                const reader = new FileReader();
-                 return new Promise((resolve, reject) => {
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
-            } catch (proxyError) {
-                 console.error('All image fetch attempts failed:', proxyError);
-                 toast({
-                    title: 'Image Load Failed',
-                    description: 'Could not load customer photo for the PDF. It will be generated without it.',
-                    variant: 'destructive'
-                });
-                return null;
-            }
-        }
-    };
-
 
   const handleCollectEmi = async (emiId: string) => {
     if (!loan) return;
@@ -150,16 +114,19 @@ export default function LoanDetailsPage() {
   const generateLoanCardPDF = async () => {
     if(!loan || !customer) return;
     const doc = new jsPDF();
-    
-    const customerPhotoDataUri = customer.customerPhoto ? await imageToDataUri(customer.customerPhoto) : null;
-    
+        
     doc.setFontSize(11);
     doc.text(`Loan Card`, 14, 22);
     doc.text(`Loan ID: ${loan.id}`, 14, 28);
     doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 34);
     
-    if (customerPhotoDataUri) {
-        doc.addImage(customerPhotoDataUri, 'JPEG', 150, 15, 30, 30);
+    if (customer.customerPhoto) {
+        try {
+            doc.addImage(customer.customerPhoto, 'JPEG', 150, 15, 30, 30);
+        } catch(e) {
+            console.error("Error adding image to PDF:", e);
+             toast({ title: "PDF Error", description: "Could not add customer photo to PDF.", variant: "destructive" });
+        }
     }
     
     autoTable(doc, {
@@ -190,8 +157,6 @@ export default function LoanDetailsPage() {
   const addAgreementContent = async (doc: jsPDF) => {
     if(!loan || !customer) return;
 
-    const customerPhotoDataUri = customer.customerPhoto ? await imageToDataUri(customer.customerPhoto) : null;
-
     const pageHeight = doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14;
@@ -218,8 +183,13 @@ export default function LoanDetailsPage() {
     doc.text('FinanceFlow Inc.', pageWidth / 2, 30, { align: 'center' });
 
     
-    if (customerPhotoDataUri) {
-        doc.addImage(customerPhotoDataUri, 'JPEG', pageWidth - margin - 35, 40, 30, 30);
+    if (customer.customerPhoto) {
+        try {
+            doc.addImage(customer.customerPhoto, 'JPEG', pageWidth - margin - 35, 40, 30, 30);
+        } catch(e) {
+             console.error("Error adding image to PDF:", e);
+             toast({ title: "PDF Error", description: "Could not add customer photo to PDF.", variant: "destructive" });
+        }
     }
 
     doc.setFontSize(10);
@@ -302,14 +272,14 @@ export default function LoanDetailsPage() {
     }
 
     addTerm(1, `Repayment: The Borrower agrees to repay the loan in ${loan.tenure} equated monthly installments (EMIs) as per the schedule provided separately in the loan card.`);
-    addTerm(2, 'Late Fees: Failure to pay an EMI on the due date shall attract a late payment penalty as per the company\'s policy, which will be communicated separately.');
+    addTerm(2, 'Late Fees: Failure to pay an EMI on the due date shall attract a late payment penalty as per the company\\'s policy, which will be communicated separately.');
     addTerm(3, 'Default: If the Borrower defaults on three or more consecutive EMIs, the Lender reserves the right to recall the entire outstanding loan amount immediately and initiate legal proceedings.');
     addTerm(4, 'Prepayment: Prepayment of the loan, in part or full, is permitted subject to prepayment charges, if any, as specified by the Lender.');
-    addTerm(5, 'Guarantor\'s Liability: The Guarantor is jointly and severally liable for the repayment of the entire loan amount, including any interest, penalties, and charges, in case of default by the Borrower. The Lender may proceed against the Guarantor without first proceeding against the Borrower.');
+    addTerm(5, 'Guarantor\\'s Liability: The Guarantor is jointly and severally liable for the repayment of the entire loan amount, including any interest, penalties, and charges, in case of default by the Borrower. The Lender may proceed against the Guarantor without first proceeding against the Borrower.');
     addTerm(6, 'Use of Funds: The Borrower shall use the loan amount for the purpose stated in the application and not for any illegal or speculative activities.');
-    addTerm(7, 'Jurisdiction: This agreement shall be governed by the laws of India. Any disputes arising out of this agreement shall be subject to the exclusive jurisdiction of the courts in the city where the Lender\'s office is located.');
+    addTerm(7, 'Jurisdiction: This agreement shall be governed by the laws of India. Any disputes arising out of this agreement shall be subject to the exclusive jurisdiction of the courts in the city where the Lender\\'s office is located.');
     addTerm(8, 'Communication: All notices and communications will be deemed to have been duly served if sent to the registered address, phone number, or email of the Borrower and Guarantor.');
-    addTerm(9, 'Data Privacy & Verification: The Lender is authorized to use the Borrower\'s and Guarantor\'s data for credit assessment, verification, and collection purposes. The Borrower and Guarantor consent to the Lender making inquiries with any third party, including credit bureaus.');
+    addTerm(9, 'Data Privacy & Verification: The Lender is authorized to use the Borrower\\'s and Guarantor\\'s data for credit assessment, verification, and collection purposes. The Borrower and Guarantor consent to the Lender making inquiries with any third party, including credit bureaus.');
     addTerm(10, 'Entire Agreement: This document, along with the loan application, KYC documents, and EMI schedule, constitutes the entire agreement between the parties and supersedes all prior discussions and agreements.');
 
     // Signatures
@@ -354,7 +324,6 @@ export default function LoanDetailsPage() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
-    const customerPhotoDataUri = customer.customerPhoto ? await imageToDataUri(customer.customerPhoto) : null;
     const emiIndex = loan.emis.findIndex(e => e.id === emi.id);
     const emiNumber = emiIndex !== -1 ? `${emiIndex + 1} of ${loan.emis.length}` : '';
 
@@ -365,8 +334,13 @@ export default function LoanDetailsPage() {
     doc.text('Official Payment Receipt', margin, margin + 10);
     doc.line(margin, margin + 14, pageWidth - margin, margin + 14);
 
-    if (customerPhotoDataUri) {
-        doc.addImage(customerPhotoDataUri, 'JPEG', pageWidth - margin - 25, margin + 18, 25, 25);
+    if (customer.customerPhoto) {
+        try {
+            doc.addImage(customer.customerPhoto, 'JPEG', pageWidth - margin - 25, margin + 18, 25, 25);
+        } catch(e) {
+            console.error("Error adding image to PDF:", e);
+            toast({ title: "PDF Error", description: "Could not add customer photo to PDF.", variant: "destructive" });
+        }
     }
     
     // Receipt Details

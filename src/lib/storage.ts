@@ -1,6 +1,6 @@
 
 import type { Customer, Loan, LoanStatus } from '@/types';
-import { db, storage } from './firebase';
+import { db } from './firebase';
 import { 
     collection, 
     getDocs, 
@@ -13,7 +13,6 @@ import {
     where,
     writeBatch
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Customer Functions
 const customersCollection = collection(db, 'customers');
@@ -163,10 +162,5 @@ function calculateEmis(loan: Loan) {
     return newEmis;
 }
 
-// Firebase Storage file upload
-export const uploadFile = async (file: File, path: string): Promise<string> => {
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
-};
+// No longer need file upload, as images are stored as base64 in Firestore.
+// export const uploadFile = async (file: File, path: string): Promise<string> => { ... }
