@@ -39,15 +39,14 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
 // Helper: Load image as Base64
 function loadImage(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Attempt to use the direct Base64 URI if available
+    // Check if the URL is already a Base64 data URI
     if (url.startsWith('data:image')) {
-        resolve(url);
-        return;
+      resolve(url);
+      return;
     }
-    
-    // Fallback to fetching if it's a URL
+
     const img = new Image();
-    img.crossOrigin = "anonymous"; // This is important for fetching from other domains
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = img.width;
@@ -61,10 +60,28 @@ function loadImage(url: string): Promise<string> {
         reject(new Error("Failed to convert image to data URL."));
       }
     };
-    img.onerror = () => reject(new Error('Failed to load image.'));
-    
-    // Use a CORS proxy for external images to avoid tainted canvas issues
-    img.src = `https://cors-anywhere.herokuapp.com/${url}`;
+    img.onerror = () => {
+        // Fallback to CORS proxy if direct load fails
+        const proxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
+        const proxyImg = new Image();
+        proxyImg.crossOrigin = "anonymous";
+        proxyImg.onload = () => {
+             const canvas = document.createElement("canvas");
+            canvas.width = proxyImg.width;
+            canvas.height = proxyImg.height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(proxyImg, 0, 0);
+            try {
+                const dataUrl = canvas.toDataURL("image/jpeg");
+                resolve(dataUrl);
+            } catch (e) {
+                reject(new Error("Failed to convert proxied image to data URL."));
+            }
+        };
+        proxyImg.onerror = () => reject(new Error('Failed to fetch image via proxy'));
+        proxyImg.src = proxyUrl;
+    };
+    img.src = url;
   });
 }
 
@@ -99,8 +116,8 @@ async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[
   // Customer Photo (top right)
   if (customer.customerPhoto) {
     try {
-      // The image is already a Base64 data URI, so no conversion needed.
-      doc.addImage(customer.customerPhoto, "JPEG", 150, 35, 40, 40);
+      const image = await loadImage(customer.customerPhoto);
+      doc.addImage(image, "JPEG", 150, 35, 40, 40);
     } catch {
       doc.text("(Photo not loaded)", 150, 45);
     }
@@ -341,20 +358,20 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text("Terms and Conditions", 15, y);
-  y += 5;
+  y += 6;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
+  
   const terms = [
-    "1. Loan amount must be used only for declared purpose.",
-    "2. Repayment shall be in fixed EMIs as per schedule.",
-    "3. Interest is charged on reducing balance basis.",
-    "4. Processing fee is non-refundable.",
-    "5. Late payments may incur penalties.",
-    "6. Early closure allowed with full dues & charges.",
-    "7. Top-up eligibility is subject to repayment history.",
-    "8. Guarantor shares legal liability on default.",
-    "9. Data will be kept secure and used officially.",
-    "10. Disputes fall under [Rajasthan] jurisdiction."
+    `1. Purpose of Loan: The Borrower agrees to use the loan amount solely for the purpose declared during the application and for no other reason. Misuse of funds may result in immediate recall of the loan.`,
+    `2. Repayment Schedule: The Borrower is obligated to repay the loan in ${loan.tenure} Equated Monthly Installments (EMIs) on the specified due dates as detailed in the EMI schedule. It is the borrower's responsibility to ensure timely payments.`,
+    `3. Interest Calculation: Interest on the loan will be calculated on a reducing balance basis. The interest rate is fixed for the duration of the loan unless explicitly stated otherwise.`,
+    `4. Non-Refundable Fees: The processing fee, collected at the time of disbursal for administrative and processing costs, is strictly non-refundable under any circumstances, including loan cancellation or prepayment.`,
+    `5. Penalties for Late Payment: Failure to pay any EMI by its due date will attract a late payment penalty. Continued defaults may adversely affect the Borrower's credit score and future borrowing eligibility.`,
+    `6. Prepayment of Loan: The Borrower may choose to prepay the loan in full before the end of its tenure. Such prepayments may be subject to prepayment charges as per the Lender's prevailing policy.`,
+    `7. Guarantor's Liability: The Guarantor is jointly and severally liable for the repayment of the entire loan amount, including any interest, penalties, and charges. The Lender may proceed against the Guarantor without first proceeding against the Borrower.`,
+    `8. Confidentiality of Data: The Lender agrees to maintain the confidentiality of the Borrower's and Guarantor's personal data. This information will only be used for official purposes, including credit checks and legal proceedings if required.`,
+    `9. Jurisdiction: Any disputes, claims, or legal proceedings arising out of this loan agreement shall be subject to the exclusive jurisdiction of the courts in Rajasthan, India.`
   ];
 
   const splitTerms = terms.map(term => doc.splitTextToSize(term, pageWidth - 30));
@@ -368,10 +385,17 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   });
 
   // Page 2: EMI Summary
+  if (y > doc.internal.pageSize.getHeight() - 60) {
+      doc.addPage();
+      y = 15;
+  }
+
   doc.addPage();
+  let emiPageY = 20;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
-  doc.text("EMI Schedule Summary", 105, 20, { align: "center" });
+  doc.text("EMI Schedule Summary", 105, emiPageY, { align: "center" });
+  emiPageY += 10;
 
   const emiTable = emiList.map((emi, i) => [
     `${i + 1}`,
@@ -381,7 +405,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   ]);
 
   autoTable(doc, {
-    startY: 30,
+    startY: emiPageY,
     head: [["#", "Due Date", "EMI Amount", "Status"]],
     body: emiTable,
     styles: { fontSize: 9 },
