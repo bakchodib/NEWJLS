@@ -44,25 +44,18 @@ const navItemsMap = {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { role, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !role && pathname !== '/') {
+      router.replace('/');
+    }
+  }, [role, loading, router, pathname]);
 
   if (pathname === '/') {
     return <>{children}</>;
   }
-
-  return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
-}
-
-function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const { role, loading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !role) {
-      router.replace('/');
-    }
-  }, [role, loading, router]);
 
   if (loading || !role) {
     return (
@@ -71,6 +64,14 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+
+  return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
+}
+
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const { role } = useAuth();
+  const pathname = usePathname();
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   
   const navItems = role ? navItemsMap[role] || [] : [];
 
