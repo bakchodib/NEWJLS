@@ -321,7 +321,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
     startY: y,
     body: [
         ["Loan ID:", loan.id],
-        ["Sanctioned Amount:", `\u20B9${formatCurrency(loan.amount)}`],
+        ["Total Disbursed Amount:", `\u20B9${formatCurrency(loan.amount)}`],
         ["Processing Fee:", `${loan.processingFee}% (\u20B9${formatCurrency(processingFeeAmount)})`],
         ["Net Disbursed Amount:", `\u20B9${formatCurrency(netDisbursed)}`],
         ["Interest Rate:", `${loan.interestRate}% p.a.`],
