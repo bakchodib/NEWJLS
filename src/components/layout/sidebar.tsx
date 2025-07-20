@@ -4,27 +4,73 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { LayoutDashboard, Users, Landmark, HandCoins, UserPlus, Briefcase, UserCog, FileText, Download } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  LayoutDashboard,
+  Users,
+  Landmark,
+  HandCoins,
+  UserPlus,
+  UserCog,
+  FileText,
+  Download,
+  ChevronDown,
+  Briefcase,
+} from 'lucide-react';
+import React, { useState } from 'react';
+
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/users', label: 'User Management', icon: UserCog },
-  { href: '/customers', label: 'Customers', icon: Users },
-  { href: '/customers/register', label: 'Register Customer', icon: UserPlus },
-  { href: '/loans', label: 'Loans', icon: Landmark },
-  { href: '/loans/applications', label: 'Applications', icon: FileText },
-  { href: '/loans/apply', label: 'New Application', icon: HandCoins },
-  { href: '/loans/emi-collection', label: 'EMI Collection', icon: Download },
+  {
+    label: 'Customers',
+    icon: Users,
+    subItems: [
+      { href: '/customers', label: 'All Customers', icon: Users },
+      { href: '/customers/register', label: 'Register Customer', icon: UserPlus },
+    ],
+  },
+  {
+    label: 'Loans',
+    icon: Landmark,
+    subItems: [
+        { href: '/loans', label: 'All Loans', icon: Landmark },
+        { href: '/loans/applications', label: 'Applications', icon: FileText },
+        { href: '/loans/apply', label: 'New Application', icon: HandCoins },
+        { href: '/loans/emi-collection', label: 'EMI Collection', icon: Download },
+    ]
+  }
 ];
 
 const agentNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/customers', label: 'Customers', icon: Users },
-  { href: '/customers/register', label: 'Register Customer', icon: UserPlus },
-  { href: '/loans', label: 'Loans', icon: Landmark },
-  { href: '/loans/emi-collection', label: 'EMI Collection', icon: Download },
+  {
+    label: 'Customers',
+    icon: Users,
+    subItems: [
+      { href: '/customers', label: 'All Customers', icon: Users },
+      { href: '/customers/register', label: 'Register Customer', icon: UserPlus },
+    ],
+  },
+   {
+    label: 'Loans',
+    icon: Landmark,
+    subItems: [
+        { href: '/loans', label: 'All Loans', icon: Landmark },
+        { href: '/loans/emi-collection', label: 'EMI Collection', icon: Download },
+    ]
+  }
 ];
 
 const customerNavItems = [
@@ -42,41 +88,94 @@ export function Sidebar() {
   const { role } = useAuth();
   const pathname = usePathname();
   const navItems = role ? navItemsMap[role] || [] : [];
-
-  const isNavItemActive = (itemHref: string) => {
-    if (itemHref === '/dashboard' || itemHref === '/') {
-      return pathname === itemHref;
+  
+  const isNavItemActive = (item) => {
+    if (item.subItems) {
+      return item.subItems.some(sub => pathname.startsWith(sub.href));
     }
-    return pathname.startsWith(itemHref);
+    if (item.href === '/dashboard') {
+        return pathname === item.href;
+    }
+    return pathname.startsWith(item.href);
+  };
+  
+  const [openSections, setOpenSections] = useState(() => {
+     const activeSections = {};
+     navItems.forEach(item => {
+        if(item.subItems && isNavItemActive(item)) {
+            activeSections[item.label] = true;
+        }
+     });
+     return activeSections;
+  });
+
+  const toggleSection = (label) => {
+    setOpenSections(prev => ({...prev, [label]: !prev[label]}));
   }
 
   return (
-    <aside className="hidden w-16 flex-col border-r bg-card sm:flex">
-      <TooltipProvider>
-        <nav className="flex flex-col items-center gap-4 px-2 py-4">
-          <Link href="/dashboard" className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base">
-            <Briefcase className="h-5 w-5 transition-all group-hover:scale-110" />
-            <span className="sr-only">FinanceFlow</span>
-          </Link>
-          {navItems.map((item) => (
-            <Tooltip key={item.href}>
-              <TooltipTrigger asChild>
-                <Link
-                  href={item.href}
+    <aside className="hidden w-64 flex-col border-r bg-card sm:flex">
+      <div className="flex h-16 items-center border-b px-6">
+        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+          <Briefcase className="h-6 w-6 text-primary" />
+          <span className="">FinanceFlow</span>
+        </Link>
+      </div>
+      <div className="flex-1 overflow-auto py-4">
+        <nav className="grid items-start px-4 text-sm font-medium">
+          {navItems.map((item, index) =>
+            item.subItems ? (
+              <Collapsible
+                key={index}
+                open={openSections[item.label]}
+                onOpenChange={() => toggleSection(item.label)}
+                className="grid gap-1"
+              >
+                <CollapsibleTrigger
                   className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8',
-                    isNavItemActive(item.href) && 'bg-accent text-accent-foreground'
+                    'flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                    isNavItemActive(item) && 'text-primary bg-muted'
                   )}
                 >
-                  <item.icon className="h-5 w-5" />
-                  <span className="sr-only">{item.label}</span>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right">{item.label}</TooltipContent>
-            </Tooltip>
-          ))}
+                  <div className="flex items-center gap-3">
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </div>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", openSections[item.label] && "rotate-180")} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="ml-4 grid gap-1 border-l-2 border-muted pl-5">
+                  {item.subItems.map((subItem, subIndex) => (
+                    <Link
+                      key={subIndex}
+                      href={subItem.href}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                        pathname.startsWith(subItem.href) &&
+                          'text-primary bg-muted'
+                      )}
+                    >
+                      <subItem.icon className="h-4 w-4" />
+                      {subItem.label}
+                    </Link>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            ) : (
+              <Link
+                key={index}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                  isNavItemActive(item) && 'bg-muted text-primary'
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            )
+          )}
         </nav>
-      </TooltipProvider>
+      </div>
     </aside>
   );
 }

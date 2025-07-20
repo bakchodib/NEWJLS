@@ -9,10 +9,12 @@ import { usePathname } from 'next/navigation';
 
 const getTitleFromPath = (path: string) => {
   if (path.includes('/customers/register')) return 'Register Customer';
+  if (path.includes('/customers/edit')) return 'Edit Customer';
   if (path.includes('/customers')) return 'Customers';
   if (path.includes('/loans/apply')) return 'New Loan Application';
   if (path.includes('/loans/applications')) return 'Loan Applications';
   if (path.includes('/loans/emi-collection')) return 'EMI Collection';
+  if (path.includes('/loans/edit')) return 'Edit Loan';
   if (path.startsWith('/loans/')) return 'Loan Details';
   if (path.includes('/loans')) return 'Loans';
   if (path.includes('/dashboard')) return 'Dashboard';
@@ -20,7 +22,7 @@ const getTitleFromPath = (path: string) => {
   return 'FinanceFlow';
 };
 
-export function Header() {
+export function Header({children}: {children?: React.ReactNode}) {
   const { role, logout } = useAuth();
   const pathname = usePathname();
   const title = getTitleFromPath(pathname);
@@ -42,6 +44,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
+      {children}
       <h1 className="text-xl font-semibold md:text-2xl">{title}</h1>
       <div className="ml-auto flex items-center gap-4">
         <DropdownMenu>
