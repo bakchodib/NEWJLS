@@ -11,6 +11,8 @@ import { Card as ShadCard, CardContent, CardHeader, CardTitle } from '@/componen
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import CardSwap, { Card } from '@/components/ui/CardSwap';
 import '@/components/ui/CardSwap.css';
+import SplitText from '@/components/ui/SplitText';
+
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
@@ -90,9 +92,14 @@ export default function LandingPage() {
         <section className="relative w-full h-[calc(100vh-4rem)] flex items-center justify-center">
             <div className="container mx-auto px-4 grid md:grid-cols-2 gap-8 items-center">
                 <div className="z-10 text-left">
-                    <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-                        Empowering Rural Finance
-                    </h1>
+                     <SplitText 
+                        text="Empowering Rural Finance"
+                        className="text-4xl md:text-6xl font-extrabold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent"
+                        splitType="words"
+                        delay={150}
+                        from={{ opacity: 0, y: 50, scale: 0.8 }}
+                        to={{ opacity: 1, y: 0, scale: 1 }}
+                      />
                     <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-xl">
                         A complete solution for microfinance institutions to manage customers, loans, and collections with ease and efficiency.
                     </p>
@@ -105,8 +112,8 @@ export default function LandingPage() {
                         </Button>
                     </div>
                 </div>
-                <div className="relative h-[500px] w-full hidden md:flex items-center justify-center">
-                    <CardSwap width={400} height={320} cardDistance={50} verticalDistance={60} delay={4000}>
+                <div className="relative h-[450px] w-full hidden md:flex items-center justify-center">
+                    <CardSwap width={380} height={300} cardDistance={50} verticalDistance={60} delay={4000}>
                         <Card customClass="bg-primary text-primary-foreground p-6 flex flex-col justify-center items-center text-center">
                           <Landmark className="h-16 w-16 mb-4"/>
                           <h3 className="text-2xl font-bold">Micro Loans</h3>
