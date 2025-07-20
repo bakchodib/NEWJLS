@@ -85,9 +85,8 @@ export default function EmiCollectionPage() {
 
   const imageToDataUrl = async (url: string): Promise<string | null> => {
     try {
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        const response = await fetch(proxyUrl + url);
-        if (!response.ok) throw new Error(`CORS proxy failed for ${url}`);
+        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+        if (!response.ok) throw new Error(`Image fetch failed for ${url}`);
         const blob = await response.blob();
         const reader = new FileReader();
         return new Promise((resolve, reject) => {
@@ -118,18 +117,35 @@ export default function EmiCollectionPage() {
     doc.setFontSize(12)
     doc.text(`EMI Due Report - ${monthName}`, 14, 32);
 
-    autoTable(doc, {
-        startY: 40,
-        head: [['Customer', 'Phone', 'Guarantor', 'Guarantor Phone', 'EMI Amount']],
-        body: dueEmis.map(emi => [
+    const tableBody = [];
+    const imagePromises = dueEmis.map(emi => imageToDataUrl(emi.customer.customerPhoto));
+    const imageDataUrls = await Promise.all(imagePromises);
+
+    const body = dueEmis.map((emi, index) => {
+        return [
+            { content: '', image: imageDataUrls[index] }, // Placeholder for image
             emi.customer.name,
             emi.customer.phone,
             emi.customer.guarantorName,
             emi.customer.guarantorPhone,
             `₹${emi.amount.toLocaleString()}`,
-        ]),
-        foot: [[`Total Due: ₹${totalDueAmount.toLocaleString()}`, '', '', '', '']],
-        footStyles: { fontStyle: 'bold' }
+        ]
+    });
+
+    autoTable(doc, {
+        startY: 40,
+        head: [['Photo', 'Customer', 'Phone', 'Guarantor', 'Guarantor Phone', 'EMI Amount']],
+        body: body,
+        foot: [[`Total Due: ₹${totalDueAmount.toLocaleString()}`, '', '', '', '', '']],
+        footStyles: { fontStyle: 'bold' },
+        didDrawCell: (data) => {
+            if (data.column.index === 0 && data.cell.section === 'body') {
+                if (data.row.raw && (data.row.raw as any[])[0].image) {
+                    doc.addImage((data.row.raw as any[])[0].image, 'PNG', data.cell.x + 2, data.cell.y + 2, 10, 10);
+                }
+            }
+        },
+        rowPageBreak: 'avoid',
     });
     
     doc.save(`emi_due_report_${monthName.toLowerCase().replace(' ', '_')}.pdf`);
@@ -194,7 +210,10 @@ export default function EmiCollectionPage() {
               {dueEmis.length > 0 ? (
                 dueEmis.map((emi) => (
                   <TableRow key={emi.id}>
-                    <TableCell className="font-medium">{emi.customer.name}</TableCell>
+                    <TableCell className="font-medium flex items-center gap-2">
+                      <img src={emi.customer.customerPhoto} alt={emi.customer.name} className="w-8 h-8 rounded-full object-cover" />
+                      {emi.customer.name}
+                    </TableCell>
                     <TableCell>
                       <a href={`tel:${emi.customer.phone}`} className="text-blue-600 hover:underline">{emi.customer.phone}</a>
                     </TableCell>

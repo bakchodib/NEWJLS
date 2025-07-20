@@ -73,10 +73,8 @@ export default function LoanDetailsPage() {
 
   const imageToDataUrl = async (url: string): Promise<string | null> => {
     try {
-        // Using a CORS proxy for external images to avoid tainted canvas
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        const response = await fetch(proxyUrl + url);
-        if (!response.ok) throw new Error(`CORS proxy failed for ${url}`);
+        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+        if (!response.ok) throw new Error(`Image fetch failed for ${url}`);
         const blob = await response.blob();
         const reader = new FileReader();
         return new Promise((resolve, reject) => {
@@ -96,22 +94,33 @@ export default function LoanDetailsPage() {
   }
 
   const generateLoanCardPDF = async () => {
-    if(!loan) return;
+    if(!loan || !customer) return;
     const doc = new jsPDF();
     const logoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
     const logoDataUrl = await imageToDataUrl(logoUrl);
+    
+    let customerPhotoDataUrl: string | null = null;
+    if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
+        customerPhotoDataUrl = await imageToDataUrl(customer.customerPhoto);
+    }
 
     if (logoDataUrl) {
       doc.addImage(logoDataUrl, 'PNG', 14, 15, 10, 10);
     }
     doc.setFontSize(18);
-    doc.text(`FinanceFlow Inc. - Loan Card`, 28, 22);
+    doc.text(`FinanceFlow Inc.`, 28, 22);
+    
+    if (customerPhotoDataUrl) {
+      doc.addImage(customerPhotoDataUrl, 'PNG', doc.internal.pageSize.getWidth() - 34, 15, 20, 20);
+    }
+
     doc.setFontSize(11);
-    doc.text(`Loan ID: ${loan.id}`, 14, 32);
-    doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 38);
+    doc.text(`Loan Card`, 14, 32);
+    doc.text(`Loan ID: ${loan.id}`, 14, 38);
+    doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 44);
     
     autoTable(doc, {
-        startY: 45,
+        startY: 50,
         head: [['Due Date', 'Amount', 'Principal', 'Interest', 'Balance', 'Status']],
         body: loan.emis.map(emi => [
             new Date(emi.dueDate).toLocaleDateString(),
@@ -156,7 +165,7 @@ export default function LoanDetailsPage() {
         if(logoDataUrl){
             doc.addImage(logoDataUrl, 'PNG', margin, margin-4, 10, 10);
         }
-        doc.setFontSize(12);
+        doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
         doc.text('FinanceFlow Inc. - Loan Agreement', margin + 12, margin);
         doc.line(margin, margin + 2, pageWidth - margin, margin + 2);
@@ -182,7 +191,7 @@ export default function LoanDetailsPage() {
     doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, pageWidth - margin, 45, { align: 'right' });
 
     if(photoDataUrl) {
-        doc.addImage(photoDataUrl, 'PNG', pageWidth - margin - 45, 55, 45, 45);
+        doc.addImage(photoDataUrl, 'PNG', pageWidth - margin - 40, 55, 40, 40);
     }
     
     // Parties
