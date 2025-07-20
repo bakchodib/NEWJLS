@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -79,7 +80,7 @@ export default function LoansPage() {
                   <TableRow key={loan.id}>
                     <TableCell className="font-medium">{loan.id}</TableCell>
                     <TableCell>{loan.customerName}</TableCell>
-                    <TableCell>${loan.amount.toLocaleString()}</TableCell>
+                    <TableCell>₹{loan.amount.toLocaleString()}</TableCell>
                     <TableCell>{loan.interestRate}%</TableCell>
                     <TableCell>{loan.tenure} months</TableCell>
                     <TableCell>{getStatusBadge(loan.status)}</TableCell>

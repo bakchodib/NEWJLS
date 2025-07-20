@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -66,7 +67,7 @@ export default function LoanDetailsPage() {
     
     setWhatsappPreview({
         open: true,
-        message: `Dear ${loan.customerName}, your EMI payment of $${updatedLoan.emis.find(e=>e.id === emiId)?.amount} for loan ${loan.id} has been received. Thank you.`
+        message: `Dear ${loan.customerName}, your EMI payment of ₹${updatedLoan.emis.find(e=>e.id === emiId)?.amount} for loan ${loan.id} has been received. Thank you.`
     });
   };
 
@@ -83,10 +84,10 @@ export default function LoanDetailsPage() {
         head: [['Due Date', 'Amount', 'Principal', 'Interest', 'Balance', 'Status']],
         body: loan.emis.map(emi => [
             new Date(emi.dueDate).toLocaleDateString(),
-            `$${emi.amount.toLocaleString()}`,
-            `$${emi.principal.toLocaleString()}`,
-            `$${emi.interest.toLocaleString()}`,
-            `$${emi.balance.toLocaleString()}`,
+            `₹${emi.amount.toLocaleString()}`,
+            `₹${emi.principal.toLocaleString()}`,
+            `₹${emi.interest.toLocaleString()}`,
+            `₹${emi.balance.toLocaleString()}`,
             emi.status,
         ]),
     });
@@ -159,11 +160,11 @@ export default function LoanDetailsPage() {
         startY: finalY + 20,
         head: [['Term', 'Details']],
         body: [
-            ['Principal Amount', `$${loan.amount.toLocaleString()}`],
+            ['Principal Amount', `₹${loan.amount.toLocaleString()}`],
             ['Annual Interest Rate', `${loan.interestRate}%`],
             ['Tenure', `${loan.tenure} months`],
-            ['Processing Fee', `${loan.processingFee}% ($${(loan.amount * (loan.processingFee / 100)).toLocaleString()})`],
-            ['Net Disbursed Amount', `$${netDisbursed.toLocaleString()}`],
+            ['Processing Fee', `${loan.processingFee}% (₹${(loan.amount * (loan.processingFee / 100)).toLocaleString()})`],
+            ['Net Disbursed Amount', `₹${netDisbursed.toLocaleString()}`],
             ['Disbursal Date', new Date(loan.disbursalDate).toLocaleDateString()],
         ]
     });
@@ -194,7 +195,7 @@ export default function LoanDetailsPage() {
         </CardHeader>
         <CardContent>
             <div className="grid md:grid-cols-5 gap-4 text-sm">
-                <div><span className="font-medium text-muted-foreground">Principal:</span> <span className="font-bold">${loan.amount.toLocaleString()}</span></div>
+                <div><span className="font-medium text-muted-foreground">Principal:</span> <span className="font-bold">₹{loan.amount.toLocaleString()}</span></div>
                 <div><span className="font-medium text-muted-foreground">Interest Rate:</span> <span className="font-bold">{loan.interestRate}% p.a.</span></div>
                 <div><span className="font-medium text-muted-foreground">Tenure:</span> <span className="font-bold">{loan.tenure} months</span></div>
                  <div><span className="font-medium text-muted-foreground">Processing Fee:</span> <span className="font-bold">{loan.processingFee}%</span></div>
@@ -223,9 +224,9 @@ export default function LoanDetailsPage() {
               {loan.emis.map((emi) => (
                 <TableRow key={emi.id}>
                   <TableCell>{new Date(emi.dueDate).toLocaleDateString()}</TableCell>
-                  <TableCell>${emi.amount.toLocaleString()}</TableCell>
-                  <TableCell>${emi.principal.toLocaleString()}</TableCell>
-                  <TableCell>${emi.interest.toLocaleString()}</TableCell>
+                  <TableCell>₹{emi.amount.toLocaleString()}</TableCell>
+                  <TableCell>₹{emi.principal.toLocaleString()}</TableCell>
+                  <TableCell>₹{emi.interest.toLocaleString()}</TableCell>
                   <TableCell>
                     <Badge variant={emi.status === 'Paid' ? 'default' : 'secondary'} className={emi.status === 'Paid' ? 'bg-green-600' : 'bg-yellow-500'}>
                         {emi.status === 'Paid' ? <CheckCircle className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1"/>}

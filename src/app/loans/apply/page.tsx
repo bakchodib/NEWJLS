@@ -18,8 +18,8 @@ import { useAuth } from '@/contexts/auth-context';
 
 const formSchema = z.object({
   customerId: z.string().min(1, { message: 'Please select a customer.' }),
-  amount: z.coerce.number().min(1000, { message: 'Loan amount must be at least $1,000.' }),
-  interestRate: z.coerce.number().min(1, { message: 'Interest rate must be at least 1%.' }).max(30),
+  amount: z.coerce.number().min(1000, { message: 'Loan amount must be at least ₹1,000.' }),
+  interestRate: z.coerce.number().min(1, { message: 'Interest rate must be at least 1%.' }),
   tenure: z.coerce.number().min(6, { message: 'Tenure must be at least 6 months.' }).max(120),
   processingFee: z.coerce.number().min(0, { message: 'Processing fee cannot be negative.'}).max(10),
 });
@@ -114,7 +114,7 @@ export default function LoanApplicationPage() {
                     name="amount"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Loan Amount ($)</FormLabel>
+                        <FormLabel>Loan Amount (₹)</FormLabel>
                         <FormControl>
                         <Input type="number" placeholder="50000" {...field} value={field.value ?? ''} />
                         </FormControl>

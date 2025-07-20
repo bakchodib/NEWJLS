@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/contexts/auth-context';
@@ -29,7 +30,7 @@ const AdminDashboard = ({ stats }: { stats: any }) => (
       <CardContent>
         <div className="text-2xl font-bold">{stats.totalLoans}</div>
         <p className="text-xs text-muted-foreground">
-          Total Disbursed: ${stats.totalDisbursed.toLocaleString()}
+          Total Disbursed: ₹{stats.totalDisbursed.toLocaleString()}
         </p>
       </CardContent>
     </Card>
@@ -49,7 +50,7 @@ const AdminDashboard = ({ stats }: { stats: any }) => (
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <Button asChild><Link href="/customers/register">Register New Customer</Link></Button>
-        <Button asChild variant="secondary"><Link href="/loans/disburse">Disburse New Loan</Link></Button>
+        <Button asChild variant="secondary"><Link href="/loans/apply">New Loan Application</Link></Button>
       </CardContent>
     </Card>
   </div>
@@ -108,7 +109,7 @@ const CustomerDashboard = ({ stats }: { stats: any }) => (
         <DollarSign className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">${stats.totalOutstanding.toLocaleString()}</div>
+        <div className="text-2xl font-bold">₹{stats.totalOutstanding.toLocaleString()}</div>
         <p className="text-xs text-muted-foreground">Across all loans</p>
       </CardContent>
     </Card>
@@ -119,7 +120,7 @@ const CustomerDashboard = ({ stats }: { stats: any }) => (
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{stats.nextEmiDate}</div>
-        <p className="text-xs text-muted-foreground">Amount: ${stats.nextEmiAmount.toLocaleString()}</p>
+        <p className="text-xs text-muted-foreground">Amount: ₹{stats.nextEmiAmount.toLocaleString()}</p>
       </CardContent>
     </Card>
   </div>
