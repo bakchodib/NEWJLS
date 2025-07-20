@@ -24,6 +24,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const PUBLIC_PATHS = ['/', '/login'];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,18 +45,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: userData.name,
           };
           setUser(appUser);
-          if (pathname === '/') {
+           // If user is logged in and on a public page, redirect to dashboard
+          if (PUBLIC_PATHS.includes(pathname)) {
             router.replace('/dashboard');
           }
         } else {
           // User exists in Auth but not in Firestore users collection
           setUser(null);
-          router.replace('/');
+          await signOut(auth); // Sign out user if they have no role document
+          router.replace('/login');
         }
       } else {
         setUser(null);
-        if (pathname !== '/') {
-           router.replace('/');
+        // If user is not logged in and not on a public page, redirect to login
+        if (!PUBLIC_PATHS.includes(pathname)) {
+           router.replace('/login');
         }
       }
       setLoading(false);
@@ -67,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signOut(auth);
       setUser(null);
-      router.push('/');
+      router.push('/login');
     } catch (error) {
       console.error('Logout failed:', error);
     }

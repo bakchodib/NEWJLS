@@ -1,67 +1,26 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Briefcase, AlertCircle } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
+import { ArrowRight, Briefcase } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-const formSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-});
-
-export default function LoginPage() {
+export default function LandingPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    }
-  });
 
   useEffect(() => {
     if (!loading && user) {
       router.replace('/dashboard');
     }
   }, [user, loading, router]);
-
-  const handleLogin = async (values: z.infer<typeof formSchema>) => {
-    setIsSubmitting(true);
-    try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
-      // AuthProvider's useEffect will handle the redirect
-    } catch (error: any) {
-      toast({
-        title: 'Login Failed',
-        description: error.code === 'auth/invalid-credential' ? 'Invalid email or password.' : error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  
+  // Don't render anything until we know the user is not logged in.
   if (loading || user) {
-    return (
+     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="text-lg font-semibold">Loading...</div>
       </div>
@@ -69,69 +28,83 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <Card className="shadow-2xl">
-          <CardHeader className="text-center">
-            <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
-              <Briefcase className="h-8 w-8" />
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-blue-50 dark:from-slate-900 dark:to-slate-800 text-foreground">
+      <header className="sticky top-0 z-50 flex items-center justify-between h-16 px-4 md:px-8 border-b bg-background/80 backdrop-blur-sm">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+          <Briefcase className="h-6 w-6 text-primary" />
+          <span>JLS FINACE LTD</span>
+        </Link>
+        <div className="flex items-center gap-4">
+          <Button asChild>
+            <Link href="/login">
+              Login
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      <main className="flex-1">
+        <section className="relative flex flex-col items-center justify-center text-center min-h-[calc(100vh-4rem)] px-4 py-20">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(46,71,101,0.1),rgba(255,255,255,0))]"></div>
+          
+          <div 
+            className="absolute top-1/2 left-1/2 h-64 w-64 md:h-96 md:w-96 bg-primary/20 rounded-full blur-3xl animate-blob"
+            style={{ animationDelay: '0s' }}
+            ></div>
+          <div 
+            className="absolute top-1/2 left-1/2 h-64 w-64 md:h-96 md:w-96 bg-accent/20 rounded-full blur-3xl animate-blob animation-delay-2000"
+            style={{ animationDelay: '2s' }}
+            ></div>
+           <div 
+            className="absolute top-1/2 left-1/2 h-64 w-64 md:h-96 md:w-96 bg-destructive/10 rounded-full blur-3xl animate-blob animation-delay-4000"
+            style={{ animationDelay: '4s' }}
+            ></div>
+
+          <div className="z-10 max-w-4xl">
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter text-primary">
+              The Future of Financial Management
+            </h1>
+            <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+              Streamline your loan management, from application to collection, with a powerful and intuitive platform designed for growth.
+            </p>
+            <div className="mt-10">
+              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg transform hover:scale-105 transition-transform duration-300">
+                <Link href="/login">
+                  Access Your Dashboard
+                  <ArrowRight className="ml-2" />
+                </Link>
+              </Button>
             </div>
-            <CardTitle className="text-3xl font-bold text-primary">JLS FINACE LTD</CardTitle>
-            <CardDescription className="text-muted-foreground">Admin & Agent Login</CardDescription>
-          </CardHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleLogin)}>
-              <CardContent className="space-y-6">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Demo Credentials</AlertTitle>
-                  <AlertDescription>
-                    <p className="font-medium">Admin Login:</p>
-                    <p className="font-mono text-sm">Email: <strong>admin@example.com</strong></p>
-                    <p className="font-mono text-sm">Password: <strong>password</strong></p>
-                    <Separator className="my-2" />
-                     <p className="font-medium">Agent Login:</p>
-                    <p className="font-mono text-sm">Email: <strong>agent@example.com</strong></p>
-                    <p className="font-mono text-sm">Password: <strong>password</strong></p>
-                    <p className="text-xs mt-2 text-muted-foreground">Note: You must create these users in Firebase Authentication and add corresponding role documents in your Firestore `users` collection.</p>
-                  </AlertDescription>
-                </Alert>
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <Label htmlFor="email">Email Address</Label>
-                      <FormControl>
-                        <Input id="email" type="email" placeholder="admin@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <Label htmlFor="password">Password</Label>
-                       <FormControl>
-                        <Input id="password" type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isSubmitting}>
-                  {isSubmitting ? 'Signing In...' : 'Sign In'}
-                </Button>
-              </CardFooter>
-            </form>
-          </Form>
-        </Card>
-      </div>
-    </main>
+          </div>
+        </section>
+      </main>
+
+       <style jsx>{`
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        @keyframes blob {
+          0% {
+            transform: translate(-50%, -50%) scale(1);
+          }
+          33% {
+            transform: translate(-40%, -60%) scale(1.1);
+          }
+          66% {
+            transform: translate(-60%, -40%) scale(0.9);
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+          }
+        }
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+            animation-delay: 4s;
+        }
+      `}</style>
+    </div>
   );
 }

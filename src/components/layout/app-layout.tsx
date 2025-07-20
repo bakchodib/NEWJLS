@@ -41,12 +41,13 @@ const navItemsMap = {
   customer: customerNavItems,
 };
 
+const PUBLIC_PATHS = ['/', '/login'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading } = useAuth();
   
-  if (pathname === '/') {
+  if (PUBLIC_PATHS.includes(pathname)) {
     return <>{children}</>;
   }
 
