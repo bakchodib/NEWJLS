@@ -180,175 +180,187 @@ export default function LoanDetailsPage() {
 
   const generateLoanAgreementPDF = async () => {
     if(!loan || !customer) return;
-    
     const doc = new jsPDF();
-    
-    await addAgreementContent(doc);
-    doc.save(`loan_agreement_${loan.id}.pdf`);
-  }
-
-  const addAgreementContent = async (doc: jsPDF) => {
-    if(!loan || !customer) return;
-
-    const pageHeight = doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 14;
+    let y = 15;
 
-    const addHeader = () => {
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Loan Agreement', margin, margin + 2);
-        doc.line(margin, margin + 8, pageWidth - margin, margin + 8);
-    };
-
-    const addFooter = (pageNumber: number) => {
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Page ${pageNumber}`, pageWidth - margin, pageHeight - margin, { align: 'right' });
-        doc.line(margin, pageHeight - margin - 2, pageWidth - margin, pageHeight - margin - 2);
-    };
-
-    // ===== PAGE 1 =====
-    addHeader();
-
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FinanceFlow Inc.', pageWidth / 2, 30, { align: 'center' });
-
+    // 1. Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("JLS FINANCE LTD", pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(12);
+    doc.text("Loan Agreement Document", pageWidth / 2, y, { align: 'center' });
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(new Date().toLocaleDateString(), pageWidth - 15, y, { align: 'right' });
+    y += 5;
+    doc.setLineWidth(0.5);
+    doc.line(15, y, pageWidth - 15, y);
+    y += 10;
     
+    // 2. Borrower Details
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Borrower Details", 15, y);
+    y += 7;
+
     if (customer.customerPhoto) {
         try {
-            doc.addImage(customer.customerPhoto, 'JPEG', pageWidth - margin - 35, 40, 30, 30);
+            doc.addImage(customer.customerPhoto, 'JPEG', pageWidth - 15 - 40, y - 5, 40, 40);
         } catch(e) {
-             console.error("Error adding image to PDF:", e);
-             toast({ title: "PDF Error", description: "Could not add customer photo to PDF.", variant: "destructive" });
+            console.error("Error adding image to PDF:", e);
         }
     }
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Loan ID: ${loan.id}`, margin, 45);
-    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, margin, 50);
-
-
-    // Parties
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('1. Parties to the Agreement', margin, 70);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
+    
+    const borrowerDetails = [
+        ["Full Name:", customer.name],
+        ["Phone Number:", customer.phone],
+        ["Aadhar Number:", customer.aadharNumber],
+        ["Address:", customer.address]
+    ];
     autoTable(doc, {
-        startY: 75,
+        startY: y,
+        body: borrowerDetails,
         theme: 'plain',
         tableWidth: 120,
-        styles: { fontSize: 9, cellPadding: 1, overflow: 'linebreak' },
-        body: [
-            [{ content: 'Lender:', styles: { fontStyle: 'bold' } }, 'FinanceFlow Inc.'],
-            [{ content: 'Borrower:', styles: { fontStyle: 'bold' } }, ''],
-            ['  Name:', customer.name],
-            ['  Customer ID:', customer.id],
-            ['  Address:', customer.address],
-            ['  Phone:', customer.phone],
-            [{ content: 'Guarantor:', styles: { fontStyle: 'bold', paddingTop: 4 } }, ''],
-            ['  Name:', customer.guarantorName],
-            ['  Phone:', customer.guarantorPhone],
-        ],
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
+        columnStyles: { 0: { fontStyle: 'bold' } }
     });
-    let finalY = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as any).lastAutoTable.finalY + 10;
     
-    // Loan Terms
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('2. Principal Loan Terms', margin, finalY);
-    const netDisbursed = loan.amount - (loan.amount * (loan.processingFee / 100));
+    // 3. Guarantor Details
+    doc.setFont("helvetica", "bold");
+    doc.text("Guarantor Details", 15, y);
+    y += 7;
+    const guarantorDetails = [
+        ["Full Name:", customer.guarantorName],
+        ["Phone Number:", customer.guarantorPhone],
+        ["Relationship:", "N/A"] // As per type, not available
+    ];
     autoTable(doc, {
-        startY: finalY + 5,
-        head: [['Term', 'Details']],
-        body: [
-            ['Principal Amount', `₹${loan.amount.toLocaleString()}`],
-            ['Annual Interest Rate', `${loan.interestRate}%`],
-            ['Tenure', `${loan.tenure} months`],
-            ['Processing Fee', `${loan.processingFee}% (₹${(loan.amount * (loan.processingFee / 100)).toLocaleString()})`],
-            ['Net Disbursed Amount', `₹${netDisbursed.toLocaleString()}`],
-            ['Disbursal Date', new Date(loan.disbursalDate).toLocaleDateString()],
-        ],
-         headStyles: { fillColor: [46, 71, 101] },
-         didDrawPage: (data) => addFooter(1)
+        startY: y,
+        body: guarantorDetails,
+        theme: 'plain',
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
+        columnStyles: { 0: { fontStyle: 'bold' } }
     });
-    finalY = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as any).lastAutoTable.finalY + 10;
 
-    // ----- END OF PAGE 1 -----
-
+    // 4. Loan Information
+    doc.setFont("helvetica", "bold");
+    doc.text("Loan Information", 15, y);
+    y += 7;
+    const processingFeeAmount = loan.amount * (loan.processingFee / 100);
+    const netDisbursed = loan.amount - processingFeeAmount;
+    const loanInfo = [
+        ["Loan ID:", loan.id],
+        ["Sanctioned Amount:", `₹${loan.amount.toLocaleString()}`],
+        ["Processing Fee:", `${loan.processingFee}% (₹${processingFeeAmount.toLocaleString()})`],
+        ["Net Disbursed Amount:", `₹${netDisbursed.toLocaleString()}`],
+        ["Interest Rate:", `${loan.interestRate}% p.a.`],
+        ["Tenure:", `${loan.tenure} months`],
+        ["Disbursal Date:", new Date(loan.disbursalDate).toLocaleDateString()]
+    ];
+    autoTable(doc, {
+        startY: y,
+        body: loanInfo,
+        theme: 'plain',
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
+        columnStyles: { 0: { fontStyle: 'bold' } }
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+    
+    // 5. Top-up History (if exists) - Not implemented in current types, showing placeholder
+    if (loan.history && loan.history.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Top-up History", 15, y);
+        y += 7;
+        loan.history.forEach(topup => {
+            const topupText = `✓ ${new Date(topup.date).toLocaleDateString()} → ₹${topup.amount.toLocaleString()}`;
+            doc.setFont("helvetica", "normal");
+            doc.text(topupText, 15, y);
+            y += 7;
+        });
+        y += 3;
+    }
+    
+    // Terms & Conditions
     doc.addPage();
-    // ===== PAGE 2 =====
-    addHeader();
-    let page2Y = 30;
-
-    // Terms and Conditions
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('3. General Terms and Conditions', margin, page2Y);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    page2Y += 8;
-
-    const addTerm = (termNumber: number, termText: string) => {
-        const splitText = doc.splitTextToSize(`${termNumber}. ${termText}`, pageWidth - (margin * 2) - 5);
-        if (page2Y + (splitText.length * 4) + 4 > pageHeight - 40) { // check if it fits
-            addFooter(doc.internal.pages.length);
+    y = 15;
+    doc.setFont("helvetica", "bold");
+    doc.text("Terms and Conditions", 15, y);
+    y += 7;
+    doc.setFont("helvetica", "normal");
+    const terms = [
+      "1. Loan amount must be used only for declared purpose.",
+      "2. Repayment shall be in fixed EMIs as per schedule.",
+      "3. Interest is charged on reducing balance basis.",
+      "4. Processing fee of 5% is non-refundable.",
+      "5. Late payments may incur penalties.",
+      "6. Early closure allowed with full dues & charges.",
+      "7. Top-up eligibility is subject to repayment history.",
+      "8. Guarantor shares legal liability on default.",
+      "9. Data will be kept secure and used officially.",
+      "10. Disputes fall under [Rajasthan] jurisdiction."
+    ];
+    
+    const splitTerms = terms.map(term => doc.splitTextToSize(term, pageWidth - 30));
+    splitTerms.flat().forEach(line => {
+        if (y > doc.internal.pageSize.getHeight() - 30) {
             doc.addPage();
-            addHeader();
-            page2Y = 30;
+            y = 15;
         }
-        doc.text(splitText, margin + 5, page2Y);
-        page2Y += (splitText.length * 4) + 4;
-    }
+        doc.text(line, 15, y);
+        y += 5;
+    });
+    
+    y += 10;
+    
+    // 6. EMI Schedule Summary
+    doc.setFont("helvetica", "bold");
+    doc.text("EMI Schedule Summary", 15, y);
+    y += 7;
+    autoTable(doc, {
+        startY: y,
+        head: [['Installment No', 'Due Date', 'EMI Amount', 'Status']],
+        body: loan.emis.map((emi, index) => [
+            index + 1,
+            new Date(emi.dueDate).toLocaleDateString(),
+            `₹${emi.amount.toLocaleString()}`,
+            emi.status
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [46, 71, 101] },
+        didDrawPage: (data) => {
+            if (data.pageNumber > 1) { // If table spans multiple pages
+                y = data.cursor?.y ?? 15;
+            } else {
+                 y = (doc as any).lastAutoTable.finalY + 20;
+            }
+        }
+    });
+    y = (doc as any).lastAutoTable.finalY + 20;
 
-    addTerm(1, `Repayment: The Borrower agrees to repay the loan in ${loan.tenure} equated monthly installments (EMIs) as per the schedule provided separately in the loan card.`);
-    addTerm(2, `Late Fees: Failure to pay an EMI on the due date shall attract a late payment penalty as per the company's policy, which will be communicated separately.`);
-    addTerm(3, `Default: If the Borrower defaults on three or more consecutive EMIs, the Lender reserves the right to recall the entire outstanding loan amount immediately and initiate legal proceedings.`);
-    addTerm(4, `Prepayment: Prepayment of the loan, in part or full, is permitted subject to prepayment charges, if any, as specified by the Lender.`);
-    addTerm(5, `Guarantor's Liability: The Guarantor is jointly and severally liable for the repayment of the entire loan amount, including any interest, penalties, and charges, in case of default by the Borrower. The Lender may proceed against the Guarantor without first proceeding against the Borrower.`);
-    addTerm(6, `Use of Funds: The Borrower shall use the loan amount for the purpose stated in the application and not for any illegal or speculative activities.`);
-    addTerm(7, `Jurisdiction: This agreement shall be governed by the laws of India. Any disputes arising out of this agreement shall be subject to the exclusive jurisdiction of the courts in the city where the Lender's office is located.`);
-    addTerm(8, `Communication: All notices and communications will be deemed to have been duly served if sent to the registered address, phone number, or email of the Borrower and Guarantor.`);
-    addTerm(9, `Data Privacy & Verification: The Lender is authorized to use the Borrower's and Guarantor's data for credit assessment, verification, and collection purposes. The Borrower and Guarantor consent to the Lender making inquiries with any third party, including credit bureaus.`);
-    addTerm(10, `Entire Agreement: This document, along with the loan application, KYC documents, and EMI schedule, constitutes the entire agreement between the parties and supersedes all prior discussions and agreements.`);
 
-    // Signatures
-    if (page2Y > pageHeight - 80) { // Check space for signatures
-        addFooter(doc.internal.pages.length);
+    if (y > doc.internal.pageSize.getHeight() - 50) {
         doc.addPage();
-        addHeader();
-        page2Y = 30;
+        y = 20;
     }
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('4. Acknowledgment and Signatures', margin, page2Y);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    page2Y += 8;
-    const acknowledgementText = "By signing below, the parties acknowledge that they have read, understood, and agreed to the terms and conditions of this agreement.";
-    const splitAckText = doc.splitTextToSize(acknowledgementText, pageWidth - (margin * 2));
-    doc.text(splitAckText, margin, page2Y);
-    page2Y += (splitAckText.length * 5) + 30;
+
+    // 7. Signatures
+    doc.setFont("helvetica", "normal");
+    const signatureY = doc.internal.pageSize.getHeight() - 40;
+    doc.line(15, signatureY, 85, signatureY);
+    doc.text("Customer Signature", 15, signatureY + 5);
+
+    doc.line(pageWidth - 85, signatureY, pageWidth - 15, signatureY);
+    doc.text("Guarantor Signature", pageWidth - 85, signatureY + 5);
     
-    doc.line(margin, page2Y, margin + 70, page2Y);
-    doc.text('Signature of Borrower', margin, page2Y + 5);
-    doc.text(`(${customer.name})`, margin, page2Y + 10);
-    
-    doc.line(pageWidth - margin - 70, page2Y, pageWidth - margin, page2Y);
-    doc.text('For FinanceFlow Inc.', pageWidth - margin - 70, page2Y + 5);
-    doc.text('(Authorized Signatory)', pageWidth - margin - 70, page2Y + 10);
+    doc.save(`loan_agreement_${loan.id}.pdf`);
+  };
 
-    page2Y += 25;
-    doc.line(margin, page2Y, margin + 70, page2Y);
-    doc.text('Signature of Guarantor', margin, page2Y + 5);
-    doc.text(`(${customer.guarantorName})`, margin, page2Y + 10);
-
-
-    addFooter(doc.internal.pages.length);
-  }
 
   const generateEmiReceiptPDF = async (emi: EMI) => {
     if(!loan || !customer || !emi.paymentDate) return;
