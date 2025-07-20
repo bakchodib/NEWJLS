@@ -79,14 +79,14 @@ export const deleteCustomer = async (customerId: string): Promise<void> => {
 
 // Loan Functions
 export const getLoans = async (): Promise<Loan[]> => {
-    const querySnapshot = await getDocs(loansCollection);
+    const querySnapshot = await getDocs(query(loansCollection, orderBy("id")));
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
 };
 
 export const getLoanById = async (loanId: string): Promise<Loan | null> => {
     const loanDoc = await getDoc(doc(db, 'loans', loanId));
     if (loanDoc.exists()) {
-        return { id: loanDoc.id, ...loanDoc.data() } as Loan;
+        return { id: loanDoc.id, ...doc.data() } as Loan;
     }
     return null;
 }
@@ -100,7 +100,7 @@ export const getCustomerById = async (customerId: string): Promise<Customer | nu
 }
 
 
-export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate'>): Promise<Loan> => {
+export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate' | 'principalRemaining'>): Promise<Loan> => {
     // Get the last loan to determine the new ID
     const lastLoanQuery = query(loansCollection, orderBy("id", "desc"), limit(1));
     const lastLoanSnapshot = await getDocs(lastLoanQuery);
@@ -111,13 +111,14 @@ export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'stat
         newLoanId = lastLoanId + 100;
     }
 
-    const newLoanData = { 
+    const newLoanData: Loan = { 
         ...loan,
         id: String(newLoanId),
         status: 'Pending' as LoanStatus,
         disbursalDate: '', 
         emis: [],
         history: [],
+        principalRemaining: loan.amount,
     };
     
     // Use setDoc with the custom ID
@@ -139,7 +140,7 @@ export const updateLoan = async (updatedLoan: Loan): Promise<void> => {
                          oldLoan.tenure !== updatedLoan.tenure;
 
     if (updatedLoan.status === 'Disbursed' && termsChanged) {
-        loanData.emis = calculateEmis(updatedLoan);
+        loanData.emis = calculateEmis(updatedLoan, updatedLoan.principalRemaining);
     }
     
     await updateDoc(loanDoc, loanData);
@@ -155,16 +156,17 @@ export const disburseLoan = async (loanId: string, disbursalDate: Date): Promise
 
     loan.status = 'Disbursed';
     loan.disbursalDate = disbursalDate.toISOString();
-    loan.emis = calculateEmis(loan);
+    loan.principalRemaining = loan.amount;
+    loan.emis = calculateEmis(loan, loan.amount);
     
     await updateLoan(loan);
     return loan;
 }
 
-function calculateEmis(loan: Loan) {
-    const principal = loan.amount;
+
+function calculateEmis(loan: Loan, principal: number, newTenure?: number) {
     const monthlyInterestRate = loan.interestRate / 12 / 100;
-    const tenureInMonths = loan.tenure;
+    const tenureInMonths = newTenure || loan.tenure;
 
     if (principal <= 0 || monthlyInterestRate <= 0 || tenureInMonths <= 0) {
         return [];
@@ -199,5 +201,74 @@ function calculateEmis(loan: Loan) {
     return newEmis;
 }
 
-// No longer need file upload, as images are stored as base64 in Firestore.
-// export const uploadFile = async (file: File, path: string): Promise<string> => { ... }
+export const prepayLoan = async (loanId: string, amount: number): Promise<void> => {
+    const loan = await getLoanById(loanId);
+    if (!loan) throw new Error("Loan not found");
+    if (loan.status !== 'Disbursed') throw new Error("Can only prepay a disbursed loan.");
+    if (amount > loan.principalRemaining) throw new Error("Prepayment cannot exceed remaining principal.");
+
+    loan.principalRemaining -= amount;
+    loan.history.push({
+        date: new Date().toISOString(),
+        amount: amount,
+        description: `Prepayment of ${amount} received.`,
+    });
+    
+    // Recalculate EMIs based on new principal
+    const remainingPendingEmis = loan.emis.filter(e => e.status === 'Pending');
+    const newTenure = remainingPendingEmis.length;
+    
+    const newEmis = calculateEmis(loan, loan.principalRemaining, newTenure);
+    
+    // Replace only the pending EMIs
+    const paidEmis = loan.emis.filter(e => e.status === 'Paid');
+    loan.emis = [...paidEmis, ...newEmis];
+
+    await updateLoan(loan);
+}
+
+export const topupLoan = async (loanId: string, topupAmount: number, newTenure?: number): Promise<void> => {
+    const loan = await getLoanById(loanId);
+    if (!loan) throw new Error("Loan not found");
+    if (loan.status !== 'Disbursed') throw new Error("Can only top-up a disbursed loan.");
+
+    loan.amount += topupAmount;
+    loan.principalRemaining += topupAmount;
+    loan.history.push({
+        date: new Date().toISOString(),
+        amount: topupAmount,
+        description: `Top-up of ${topupAmount} disbursed.`,
+    });
+    
+    // Recalculate EMIs based on new total principal and potentially new tenure
+    const remainingPendingEmis = loan.emis.filter(e => e.status === 'Pending');
+    const tenureForRecalculation = newTenure || remainingPendingEmis.length;
+
+    const newEmis = calculateEmis(loan, loan.principalRemaining, tenureForRecalculation);
+    
+    const paidEmis = loan.emis.filter(e => e.status === 'Paid');
+    loan.emis = [...paidEmis, ...newEmis];
+    loan.tenure = loan.emis.length; // Update total tenure
+
+    await updateLoan(loan);
+}
+
+export const closeLoan = async (loanId: string): Promise<void> => {
+    const loan = await getLoanById(loanId);
+    if (!loan) throw new Error("Loan not found");
+    if (loan.status !== 'Disbursed') throw new Error("Can only close a disbursed loan.");
+
+    loan.status = 'Closed';
+    loan.principalRemaining = 0;
+    
+    // Mark all pending EMIs as 'Paid' for record-keeping
+    loan.emis = loan.emis.map(emi => emi.status === 'Pending' ? { ...emi, status: 'Paid', paymentDate: new Date().toISOString(), amount: 0, principal: 0, interest: 0 } : emi);
+    
+    loan.history.push({
+        date: new Date().toISOString(),
+        amount: 0,
+        description: 'Loan closed early by administrator.',
+    });
+
+    await updateLoan(loan);
+}

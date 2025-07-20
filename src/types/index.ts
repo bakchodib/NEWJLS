@@ -1,3 +1,4 @@
+
 export type Role = 'admin' | 'agent' | 'customer';
 
 export interface Customer {
@@ -42,7 +43,7 @@ export interface Loan {
   id: string;
   customerId: string;
   customerName: string;
-  amount: number;
+  amount: number; // Original or total including topups
   interestRate: number; // Annual interest rate in percent
   tenure: number; // in months
   processingFee: number; // Percentage
@@ -50,4 +51,5 @@ export interface Loan {
   status: LoanStatus;
   emis: EMI[];
   history: LoanHistory[];
+  principalRemaining: number;
 }

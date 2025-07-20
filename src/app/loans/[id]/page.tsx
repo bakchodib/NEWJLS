@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { getLoanById, updateLoan, getCustomerById } from '@/lib/storage';
+import { getLoanById, updateLoan, getCustomerById, prepayLoan, topupLoan, closeLoan } from '@/lib/storage';
 import type { Loan, EMI, Customer } from '@/types';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, MessageCircle, Wallet, Download, Pencil, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, MessageCircle, Wallet, Download, Pencil, XCircle, TrendingUp, HandCoins, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -18,6 +18,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const prepaymentSchema = z.object({
+  amount: z.coerce.number().positive("Prepayment amount must be positive."),
+});
+const topupSchema = z.object({
+  amount: z.coerce.number().positive("Top-up amount must be positive."),
+  newTenure: z.coerce.number().optional(),
+});
 
 
 function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpenChange: (open: boolean) => void, message: string }) {
@@ -66,10 +80,11 @@ function loadImage(url: string): Promise<string> {
   });
 }
 
-// Helper: Format number with commas and "Rs." prefix for PDF
+// Helper: Format number with "Rs." prefix for PDF
 function formatCurrency(value: number) {
   return `Rs. ${value.toLocaleString("en-IN")}`;
 }
+
 
 /**
  * Generates a beautifully formatted Loan Card PDF
@@ -167,6 +182,8 @@ export default function LoanDetailsPage() {
   const [loan, setLoan] = useState<Loan | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [whatsappPreview, setWhatsappPreview] = useState({ open: false, message: '' });
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
+
   const params = useParams();
   const { id } = params;
   const { role } = useAuth();
@@ -238,6 +255,47 @@ export default function LoanDetailsPage() {
     }
   };
 
+  const onPrepaymentSubmit = async (values: z.infer<typeof prepaymentSchema>) => {
+    if (!loan) return;
+    setIsActionSubmitting(true);
+    try {
+        await prepayLoan(loan.id, values.amount);
+        toast({ title: "Prepayment Successful", description: `Prepayment of ${formatCurrency(values.amount)} has been applied.` });
+        await fetchLoanDetails(loan.id);
+    } catch(e) {
+        toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+    } finally {
+        setIsActionSubmitting(false);
+    }
+  };
+
+  const onTopupSubmit = async (values: z.infer<typeof topupSchema>) => {
+    if (!loan) return;
+    setIsActionSubmitting(true);
+    try {
+        await topupLoan(loan.id, values.amount, values.newTenure);
+        toast({ title: "Top-up Successful", description: `Loan has been topped up by ${formatCurrency(values.amount)}.` });
+        await fetchLoanDetails(loan.id);
+    } catch(e) {
+        toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+    } finally {
+        setIsActionSubmitting(false);
+    }
+  };
+
+  const handleCloseLoan = async () => {
+    if (!loan) return;
+    setIsActionSubmitting(true);
+    try {
+        await closeLoan(loan.id);
+        toast({ title: "Loan Closed", description: "The loan has been successfully closed." });
+        await fetchLoanDetails(loan.id);
+    } catch(e) {
+        toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+    } finally {
+        setIsActionSubmitting(false);
+    }
+  };
 
 async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList: EMI[]) {
   const doc = new jsPDF();
@@ -493,6 +551,56 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   if (!loan || !customer) return <div>Loading loan details or loan not found...</div>;
 
   const isClosed = loan.status === 'Closed';
+  const PrepaymentForm = ({formMethods}) => (
+    <form onSubmit={formMethods.handleSubmit(onPrepaymentSubmit)}>
+      <DialogHeader>
+        <DialogTitle>Make a Prepayment</DialogTitle>
+        <DialogDescription>
+          Enter an amount to pay towards your principal. This will reduce your outstanding balance.
+          Current remaining principal: {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(loan.principalRemaining || 0)}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="py-4 space-y-2">
+        <Label htmlFor="prepayment-amount">Prepayment Amount</Label>
+        <Input id="prepayment-amount" type="number" {...formMethods.register('amount')} />
+        {formMethods.formState.errors.amount && <p className="text-sm text-destructive">{String(formMethods.formState.errors.amount.message)}</p>}
+      </div>
+      <DialogFooter>
+        <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+        <Button type="submit" disabled={isActionSubmitting}>{isActionSubmitting ? 'Submitting...' : 'Submit Prepayment'}</Button>
+      </DialogFooter>
+    </form>
+  );
+
+  const TopupForm = ({formMethods}) => (
+    <form onSubmit={formMethods.handleSubmit(onTopupSubmit)}>
+      <DialogHeader>
+        <DialogTitle>Request Loan Top-Up</DialogTitle>
+        <DialogDescription>
+          Add more funds to your existing loan. This will recalculate and extend your EMI schedule.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="py-4 space-y-4">
+        <div className="space-y-2">
+            <Label htmlFor="topup-amount">Top-Up Amount</Label>
+            <Input id="topup-amount" type="number" {...formMethods.register('amount')} />
+            {formMethods.formState.errors.amount && <p className="text-sm text-destructive">{String(formMethods.formState.errors.amount.message)}</p>}
+        </div>
+        <div className="space-y-2">
+            <Label htmlFor="new-tenure">New Tenure (optional)</Label>
+            <Input id="new-tenure" type="number" placeholder={`Current: ${loan.tenure} months`} {...formMethods.register('newTenure')} />
+            <p className="text-xs text-muted-foreground">Leave blank to keep the same EMI amount and extend tenure automatically.</p>
+        </div>
+      </div>
+      <DialogFooter>
+         <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+        <Button type="submit" disabled={isActionSubmitting}>{isActionSubmitting ? 'Submitting...' : 'Request Top-Up'}</Button>
+      </DialogFooter>
+    </form>
+  );
+
+  const prepaymentFormMethods = useForm({ resolver: zodResolver(prepaymentSchema) });
+  const topupFormMethods = useForm({ resolver: zodResolver(topupSchema) });
 
   return (
     <TooltipProvider>
@@ -543,13 +651,52 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
         <CardContent>
             <div className="grid md:grid-cols-5 gap-4 text-sm">
                 <div><span className="font-medium text-muted-foreground">Principal:</span> <span className="font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(loan.amount)}</span></div>
+                <div><span className="font-medium text-muted-foreground">Remaining Principal:</span> <span className="font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(loan.principalRemaining || loan.amount)}</span></div>
                 <div><span className="font-medium text-muted-foreground">Interest Rate:</span> <span className="font-bold">{loan.interestRate}% p.a.</span></div>
                 <div><span className="font-medium text-muted-foreground">Tenure:</span> <span className="font-bold">{loan.tenure} months</span></div>
-                 <div><span className="font-medium text-muted-foreground">Processing Fee:</span> <span className="font-bold">{loan.processingFee}%</span></div>
                 <div><span className="font-medium text-muted-foreground">Disbursed:</span> <span className="font-bold">{loan.disbursalDate ? format(new Date(loan.disbursalDate), 'dd-MM-yyyy') : 'N/A'}</span></div>
             </div>
         </CardContent>
       </Card>
+
+      {role === 'admin' && !isClosed && (
+      <Card>
+        <CardHeader>
+            <CardTitle>Loan Actions</CardTitle>
+            <CardDescription>Manage this loan with prepayments, top-ups, or early closure.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid sm:grid-cols-3 gap-4">
+            <Dialog>
+                <DialogTrigger asChild><Button variant="outline"><HandCoins className="mr-2"/>Make Prepayment</Button></DialogTrigger>
+                <DialogContent><PrepaymentForm formMethods={prepaymentFormMethods} /></DialogContent>
+            </Dialog>
+
+            <Dialog>
+                <DialogTrigger asChild><Button variant="outline"><TrendingUp className="mr-2"/>Request Top-Up</Button></DialogTrigger>
+                <DialogContent><TopupForm formMethods={topupFormMethods} /></DialogContent>
+            </Dialog>
+
+            <Dialog>
+                <DialogTrigger asChild><Button variant="destructive"><ShieldCheck className="mr-2"/>Close Loan Early</Button></DialogTrigger>
+                 <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Are you sure you want to close this loan?</DialogTitle>
+                        <DialogDescription>
+                            This will mark the loan as closed. This action cannot be undone. The outstanding amount of {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(loan.principalRemaining || 0)} will be considered settled.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                        <Button variant="destructive" onClick={handleCloseLoan} disabled={isActionSubmitting}>
+                           {isActionSubmitting ? 'Closing...' : 'Yes, Close Loan'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </CardContent>
+      </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>EMI Schedule</CardTitle>
@@ -612,5 +759,3 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
     </TooltipProvider>
   );
 }
-
-    
