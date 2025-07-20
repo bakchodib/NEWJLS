@@ -205,7 +205,7 @@ export default function LandingPage() {
                 <div className="text-center mb-12">
                     <h2 className="text-3xl md:text-4xl font-bold">Trusted by Finance Professionals</h2>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <div className="flex flex-col md:flex-row justify-center items-center gap-8 max-w-6xl mx-auto">
                     {testimonials.map((testimonial, index) => (
                          <div key={index} className="flex justify-center">
                             <ProfileCard
