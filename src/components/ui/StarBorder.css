@@ -1,0 +1,58 @@
+.star-border-container {
+  display: inline-block;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: hsl(var(--card));
+  z-index: 1;
+}
+
+.inner-content {
+  background-color: hsl(var(--card));
+  border-radius: 15px; /* Slightly smaller than container to show the border */
+  padding: 1rem;
+  position: relative;
+  z-index: 2;
+  height: 100%;
+}
+
+.border-gradient-top,
+.border-gradient-bottom {
+  position: absolute;
+  width: 300%;
+  height: 50%;
+  opacity: 0.7;
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.border-gradient-bottom {
+  bottom: -12px;
+  right: -250%;
+  animation: star-movement-bottom linear infinite alternate;
+}
+
+.border-gradient-top {
+  top: -12px;
+  left: -250%;
+  animation: star-movement-top linear infinite alternate;
+}
+
+@keyframes star-movement-bottom {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(100px, 50px);
+  }
+}
+
+@keyframes star-movement-top {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-100px, -50px);
+  }
+}

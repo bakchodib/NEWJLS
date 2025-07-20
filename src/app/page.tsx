@@ -12,7 +12,7 @@ import '@/components/ui/CardSwap.css';
 import SplitText from '@/components/ui/SplitText';
 import ProfileCard from '@/components/ui/ProfileCard';
 import Aurora from '@/components/ui/Aurora';
-import TiltedCard from '@/components/ui/TiltedCard';
+import StarBorder from '@/components/ui/StarBorder';
 
 
 export default function LandingPage() {
@@ -197,30 +197,15 @@ export default function LandingPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {features.map((feature, index) => (
-                 <TiltedCard
-                  key={index}
-                  imageSrc={feature.image}
-                  altText={feature.title}
-                  captionText={feature.title}
-                  containerHeight="350px"
-                  containerWidth="100%"
-                  imageHeight="350px"
-                  imageWidth="100%"
-                  scaleOnHover={1.05}
-                  rotateAmplitude={8}
-                  showMobileWarning={false}
-                  showTooltip={false}
-                  displayOverlayContent={true}
-                  overlayContent={
-                    <div className="p-4 bg-black/50 backdrop-blur-sm h-full flex flex-col justify-end text-white rounded-lg">
-                      <div className="mx-auto bg-primary/50 rounded-full p-3 w-fit mb-3">
+                 <StarBorder key={index} className="h-full">
+                    <div className="flex flex-col items-center text-center justify-center h-full p-6">
+                      <div className="mx-auto bg-primary/20 rounded-full p-3 w-fit mb-4">
                         {feature.icon}
                       </div>
                       <h3 className="text-lg font-bold">{feature.title}</h3>
-                      <p className="text-xs text-white/80 mt-1">{feature.description}</p>
+                      <p className="text-sm text-muted-foreground mt-2">{feature.description}</p>
                     </div>
-                  }
-                 />
+                 </StarBorder>
               ))}
             </div>
           </div>
@@ -277,7 +262,3 @@ export default function LandingPage() {
     </div>
   );
 }
-
-    
-
-    
