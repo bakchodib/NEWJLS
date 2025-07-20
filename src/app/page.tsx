@@ -16,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -50,7 +51,7 @@ export default function LoginPage() {
     } catch (error: any) {
       toast({
         title: 'Login Failed',
-        description: error.message || 'Invalid email or password. Please try again.',
+        description: error.code === 'auth/invalid-credential' ? 'Invalid email or password.' : error.message,
         variant: 'destructive',
       });
     } finally {
@@ -80,6 +81,16 @@ export default function LoginPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleLogin)}>
               <CardContent className="space-y-6">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Demo Credentials</AlertTitle>
+                  <AlertDescription>
+                    <p>Use the following credentials to log in as an admin:</p>
+                    <p className="font-mono text-sm">Email: <strong>admin@example.com</strong></p>
+                    <p className="font-mono text-sm">Password: <strong>password</strong></p>
+                    <p className="text-xs mt-2 text-muted-foreground">Note: You must create this user in your Firebase Authentication and add a corresponding `role: "admin"` document in your Firestore `users` collection.</p>
+                  </AlertDescription>
+                </Alert>
                 <FormField
                   control={form.control}
                   name="email"
