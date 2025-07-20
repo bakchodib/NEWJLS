@@ -80,6 +80,7 @@ export default function LoanDetailsPage() {
             ['Loan Amount', `$${loan.amount.toLocaleString()}`],
             ['Interest Rate', `${loan.interestRate}% p.a.`],
             ['Tenure', `${loan.tenure} months`],
+            ['Processing Fee', `${loan.processingFee}%`],
             ['Disbursal Date', new Date(loan.disbursalDate).toLocaleDateString()],
         ]
     });
@@ -138,10 +139,11 @@ export default function LoanDetailsPage() {
           </div>
         </CardHeader>
         <CardContent>
-            <div className="grid md:grid-cols-4 gap-4 text-sm">
+            <div className="grid md:grid-cols-5 gap-4 text-sm">
                 <div><span className="font-medium text-muted-foreground">Principal:</span> <span className="font-bold">${loan.amount.toLocaleString()}</span></div>
                 <div><span className="font-medium text-muted-foreground">Interest Rate:</span> <span className="font-bold">{loan.interestRate}% p.a.</span></div>
                 <div><span className="font-medium text-muted-foreground">Tenure:</span> <span className="font-bold">{loan.tenure} months</span></div>
+                 <div><span className="font-medium text-muted-foreground">Processing Fee:</span> <span className="font-bold">{loan.processingFee}%</span></div>
                 <div><span className="font-medium text-muted-foreground">Disbursed:</span> <span className="font-bold">{new Date(loan.disbursalDate).toLocaleDateString()}</span></div>
             </div>
         </CardContent>

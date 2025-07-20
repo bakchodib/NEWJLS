@@ -21,6 +21,7 @@ const formSchema = z.object({
   amount: z.coerce.number().min(1000, { message: 'Loan amount must be at least $1,000.' }),
   interestRate: z.coerce.number().min(1, { message: 'Interest rate must be at least 1%.' }).max(30),
   tenure: z.coerce.number().min(6, { message: 'Tenure must be at least 6 months.' }).max(120),
+  processingFee: z.coerce.number().min(0, { message: 'Processing fee cannot be negative.'}).max(10),
 });
 
 export default function LoanApplicationPage() {
@@ -44,6 +45,7 @@ export default function LoanApplicationPage() {
       amount: undefined,
       interestRate: undefined,
       tenure: undefined,
+      processingFee: 5,
     },
   });
 
@@ -106,45 +108,60 @@ export default function LoanApplicationPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Loan Amount ($)</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="50000" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="interestRate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Annual Interest Rate (%)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.1" placeholder="12.5" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tenure"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tenure (in months)</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="36" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <FormField
+                    control={form.control}
+                    name="amount"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Loan Amount ($)</FormLabel>
+                        <FormControl>
+                        <Input type="number" placeholder="50000" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="interestRate"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Annual Interest Rate (%)</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="0.1" placeholder="12.5" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="tenure"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Tenure (in months)</FormLabel>
+                        <FormControl>
+                        <Input type="number" placeholder="36" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="processingFee"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Processing Fee (%)</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="0.1" placeholder="5" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+              </div>
               <Button type="submit">Submit for Approval</Button>
             </form>
           </Form>

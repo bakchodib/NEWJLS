@@ -34,6 +34,7 @@ export interface Loan {
   amount: number;
   interestRate: number; // Annual interest rate in percent
   tenure: number; // in months
+  processingFee: number; // Percentage
   disbursalDate: string;
   status: LoanStatus;
   emis: EMI[];
