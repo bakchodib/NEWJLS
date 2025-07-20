@@ -10,7 +10,9 @@ import { usePathname } from 'next/navigation';
 const getTitleFromPath = (path: string) => {
   if (path.includes('/customers/register')) return 'Register Customer';
   if (path.includes('/customers')) return 'Customers';
-  if (path.includes('/loans/disburse')) return 'Disburse Loan';
+  if (path.includes('/loans/apply')) return 'New Loan Application';
+  if (path.includes('/loans/applications')) return 'Loan Applications';
+  if (path.startsWith('/loans/')) return 'Loan Details';
   if (path.includes('/loans')) return 'Loans';
   if (path.includes('/dashboard')) return 'Dashboard';
   if (path.includes('/users')) return 'User Management';

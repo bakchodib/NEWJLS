@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { LayoutDashboard, Users, Landmark, HandCoins, UserPlus, Briefcase, UserCog } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, HandCoins, UserPlus, Briefcase, UserCog, FileText } from 'lucide-react';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -14,7 +14,8 @@ const adminNavItems = [
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/customers/register', label: 'Register Customer', icon: UserPlus },
   { href: '/loans', label: 'Loans', icon: Landmark },
-  { href: '/loans/disburse', label: 'Disburse Loan', icon: HandCoins },
+  { href: '/loans/applications', label: 'Applications', icon: FileText },
+  { href: '/loans/apply', label: 'New Application', icon: HandCoins },
 ];
 
 const agentNavItems = [
@@ -40,6 +41,13 @@ export function Sidebar() {
   const pathname = usePathname();
   const navItems = role ? navItemsMap[role] || [] : [];
 
+  const isNavItemActive = (itemHref: string) => {
+    if (itemHref === '/dashboard' || itemHref === '/') {
+      return pathname === itemHref;
+    }
+    return pathname.startsWith(itemHref);
+  }
+
   return (
     <aside className="hidden w-16 flex-col border-r bg-card sm:flex">
       <TooltipProvider>
@@ -55,9 +63,7 @@ export function Sidebar() {
                   href={item.href}
                   className={cn(
                     'flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8',
-                    pathname === item.href && 'bg-accent text-accent-foreground',
-                    pathname.startsWith(item.href) && item.href !== '/dashboard' && pathname !== item.href && 'bg-accent/50 text-accent-foreground',
-                     pathname.startsWith(item.href) && item.href !== '/' && !pathname.startsWith('/dashboard') && 'bg-accent text-accent-foreground'
+                    isNavItemActive(item.href) && 'bg-accent text-accent-foreground'
                   )}
                 >
                   <item.icon className="h-5 w-5" />

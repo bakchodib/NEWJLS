@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, Eye } from 'lucide-react';
+import { PlusCircle, Eye, FileText, BadgeCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { Badge } from '@/components/ui/badge';
 
 export default function LoansPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -18,34 +19,46 @@ export default function LoansPage() {
     const allLoans = getLoans();
     // In a real app, customer's view would be filtered by their ID.
     // For this simulation, customers see all loans for demo purposes.
-    setLoans(allLoans);
+    setLoans(allLoans.filter(l => l.status === 'Disbursed' || l.status === 'Closed'));
   }, []);
 
-  const getStatus = (loan: Loan) => {
-    return loan.emis.every(e => e.status === 'Paid') ? 'Closed' : 'Active';
-  };
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Disbursed': return <Badge variant="secondary" className="bg-blue-500 text-white">Active</Badge>;
+      case 'Closed': return <Badge variant="default" className="bg-green-600">Closed</Badge>;
+      default: return <Badge>{status}</Badge>;
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
          <div>
-          <h1 className="text-2xl font-bold tracking-tight">{role === 'customer' ? 'My Loans' : 'All Loans'}</h1>
-          <p className="text-muted-foreground">View and manage loan accounts.</p>
+          <h1 className="text-2xl font-bold tracking-tight">{role === 'customer' ? 'My Loans' : 'Disbursed Loans'}</h1>
+          <p className="text-muted-foreground">View and manage active and closed loan accounts.</p>
         </div>
         {role === 'admin' && (
-            <Button asChild>
-                <Link href="/loans/disburse">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Disburse Loan
-                </Link>
-            </Button>
+            <div className="flex gap-2">
+                 <Button asChild variant="outline">
+                    <Link href="/loans/applications">
+                        <FileText className="mr-2 h-4 w-4" />
+                        View Applications
+                    </Link>
+                </Button>
+                <Button asChild>
+                    <Link href="/loans/apply">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        New Application
+                    </Link>
+                </Button>
+            </div>
         )}
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Loan Accounts</CardTitle>
-          <CardDescription>A list of all loan accounts.</CardDescription>
+          <CardDescription>A list of all disbursed loan accounts.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -69,7 +82,7 @@ export default function LoansPage() {
                     <TableCell>${loan.amount.toLocaleString()}</TableCell>
                     <TableCell>{loan.interestRate}%</TableCell>
                     <TableCell>{loan.tenure} months</TableCell>
-                    <TableCell>{getStatus(loan)}</TableCell>
+                    <TableCell>{getStatusBadge(loan.status)}</TableCell>
                     <TableCell>
                       <Button asChild variant="outline" size="sm">
                         <Link href={`/loans/${loan.id}`}>
@@ -83,7 +96,7 @@ export default function LoansPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center">
-                    No loans found.
+                    No disbursed loans found.
                   </TableCell>
                 </TableRow>
               )}

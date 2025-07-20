@@ -23,7 +23,7 @@ const formSchema = z.object({
   tenure: z.coerce.number().min(6, { message: 'Tenure must be at least 6 months.' }).max(120),
 });
 
-export default function DisburseLoanPage() {
+export default function LoanApplicationPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -41,7 +41,7 @@ export default function DisburseLoanPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       customerId: '',
-      amount: undefined, // Using undefined for numbers is okay with RHF + Zod coerce
+      amount: undefined,
       interestRate: undefined,
       tenure: undefined,
     },
@@ -57,16 +57,15 @@ export default function DisburseLoanPage() {
     const newLoanData = {
       ...values,
       customerName: customer.name,
-      disbursalDate: new Date().toISOString(),
     };
 
     addLoan(newLoanData);
 
     toast({
-      title: 'Loan Disbursed!',
-      description: `A loan of $${values.amount} has been disbursed to ${customer.name}.`,
+      title: 'Application Submitted!',
+      description: `Loan application for ${customer.name} has been submitted for approval.`,
     });
-    router.push('/loans');
+    router.push('/loans/applications');
   }
 
   if (loading || role !== 'admin') {
@@ -77,8 +76,8 @@ export default function DisburseLoanPage() {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Disburse New Loan</CardTitle>
-          <CardDescription>Fill in the details below to create and disburse a new loan.</CardDescription>
+          <CardTitle>New Loan Application</CardTitle>
+          <CardDescription>Fill in the details below to create a new loan application.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -146,7 +145,7 @@ export default function DisburseLoanPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit">Disburse Loan</Button>
+              <Button type="submit">Submit for Approval</Button>
             </form>
           </Form>
         </CardContent>

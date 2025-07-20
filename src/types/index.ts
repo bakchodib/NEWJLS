@@ -25,6 +25,8 @@ export interface LoanHistory {
     description: string;
 }
 
+export type LoanStatus = 'Pending' | 'Approved' | 'Disbursed' | 'Rejected' | 'Closed';
+
 export interface Loan {
   id: string;
   customerId: string;
@@ -33,6 +35,7 @@ export interface Loan {
   interestRate: number; // Annual interest rate in percent
   tenure: number; // in months
   disbursalDate: string;
+  status: LoanStatus;
   emis: EMI[];
   history: LoanHistory[];
 }
