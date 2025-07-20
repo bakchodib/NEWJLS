@@ -105,8 +105,8 @@ export default function LandingPage() {
                         </Button>
                     </div>
                 </div>
-                <div className="relative h-[600px] w-full hidden md:flex items-center justify-center">
-                    <CardSwap cardDistance={60} verticalDistance={70} delay={4000}>
+                <div className="relative h-[500px] w-full hidden md:flex items-center justify-center">
+                    <CardSwap width={400} height={320} cardDistance={50} verticalDistance={60} delay={4000}>
                         <Card customClass="bg-primary text-primary-foreground p-6 flex flex-col justify-center items-center text-center">
                           <Landmark className="h-16 w-16 mb-4"/>
                           <h3 className="text-2xl font-bold">Micro Loans</h3>
