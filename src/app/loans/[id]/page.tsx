@@ -59,7 +59,7 @@ export default function LoanDetailsPage() {
         // Since ImgBB might have CORS issues, we can try to use a proxy, but for this app, we'll assume direct fetch works.
         // A more robust solution might involve a server-side endpoint to fetch the image.
         try {
-            const response = await fetch(url);
+            const response = await fetch(`https://cors-anywhere.herokuapp.com/${url}`);
             const blob = await response.blob();
             const reader = new FileReader();
             return new Promise((resolve, reject) => {
@@ -125,7 +125,7 @@ export default function LoanDetailsPage() {
     if(!loan || !customer) return;
     const doc = new jsPDF();
     
-    const customerPhotoDataUri = await imageToDataUri(customer.customerPhoto);
+    const customerPhotoDataUri = customer.customerPhoto ? await imageToDataUri(customer.customerPhoto) : null;
     
     doc.setFontSize(18);
     doc.text(`FinanceFlow Inc.`, 14, 22);
@@ -167,7 +167,7 @@ export default function LoanDetailsPage() {
   const addAgreementContent = async (doc: jsPDF) => {
     if(!loan || !customer) return;
 
-    const customerPhotoDataUri = await imageToDataUri(customer.customerPhoto);
+    const customerPhotoDataUri = customer.customerPhoto ? await imageToDataUri(customer.customerPhoto) : null;
 
     const pageHeight = doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -196,7 +196,7 @@ export default function LoanDetailsPage() {
 
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('Private & Confidential Loan Agreement', pageWidth / 2, 40, { align: 'center' });
+    doc.text('FinanceFlow Inc. - Loan Agreement', pageWidth / 2, 40, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -330,7 +330,10 @@ export default function LoanDetailsPage() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
-    const customerPhotoDataUri = await imageToDataUri(customer.customerPhoto);
+    const customerPhotoDataUri = customer.customerPhoto ? await imageToDataUri(customer.customerPhoto) : null;
+    const emiIndex = loan.emis.findIndex(e => e.id === emi.id);
+    const emiNumber = emiIndex !== -1 ? `${emiIndex + 1} of ${loan.emis.length}` : '';
+
 
     // Header
     doc.setFontSize(18);
@@ -347,26 +350,33 @@ export default function LoanDetailsPage() {
     
     // Receipt Details
     doc.setFontSize(10);
-    const receiptY = margin + 25;
+    let receiptY = margin + 25;
     doc.text(`Receipt No:`, margin, receiptY);
     doc.text(`${emi.receiptNumber}`, margin + 40, receiptY);
 
-    doc.text(`Payment Date:`, margin, receiptY + 7);
-    doc.text(`${new Date(emi.paymentDate).toLocaleString()}`, margin + 40, receiptY + 7);
+    receiptY += 7;
+    doc.text(`Payment Date:`, margin, receiptY);
+    doc.text(`${new Date(emi.paymentDate).toLocaleString()}`, margin + 40, receiptY);
 
     // Customer & Loan Details
-    const detailsY = receiptY + 21;
+    let detailsY = receiptY + 14;
     doc.text(`Received from:`, margin, detailsY);
     doc.setFont('helvetica', 'bold');
     doc.text(`${customer.name} (ID: ${customer.id})`, margin + 40, detailsY);
     doc.setFont('helvetica', 'normal');
 
-    doc.text(`For Loan ID:`, margin, detailsY + 7);
-    doc.text(`${loan.id}`, margin + 40, detailsY + 7);
+    detailsY += 7;
+    doc.text(`For Loan ID:`, margin, detailsY);
+    doc.text(`${loan.id}`, margin + 40, detailsY);
+    
+    detailsY += 7;
+    doc.text(`EMI Number:`, margin, detailsY);
+    doc.text(`${emiNumber}`, margin + 40, detailsY);
+
 
     // Payment Table
     autoTable(doc, {
-        startY: detailsY + 15,
+        startY: detailsY + 8,
         head: [['Description', 'Amount']],
         body: [
             ['EMI Amount Received', `₹ ${emi.amount.toLocaleString()}`],
@@ -445,7 +455,7 @@ export default function LoanDetailsPage() {
                 <TableHead>Principal</TableHead>
                 <TableHead>Interest</TableHead>
                 <TableHead>Status</TableHead>
-                {(role === 'agent' || role === 'admin') && <TableHead>Action</TableHead>}
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -461,9 +471,9 @@ export default function LoanDetailsPage() {
                         {emi.status}
                     </Badge>
                   </TableCell>
-                  {(role === 'agent' || role === 'admin') && (
-                    <TableCell>
-                      {emi.status === 'Pending' ? (
+                  <TableCell className="text-right">
+                    {(role === 'agent' || role === 'admin') ? (
+                      emi.status === 'Pending' ? (
                         <Button variant="outline" size="sm" onClick={() => handleCollectEmi(emi.id)}>
                           <Wallet className="mr-2 h-4 w-4" />
                           Collect EMI
@@ -473,9 +483,16 @@ export default function LoanDetailsPage() {
                             <Download className="mr-2 h-4 w-4" />
                             Receipt
                         </Button>
-                      )}
-                    </TableCell>
-                  )}
+                      )
+                    ) : (
+                        emi.status === 'Paid' && (
+                            <Button variant="secondary" size="sm" onClick={() => generateEmiReceiptPDF(emi)} disabled={!emi.paymentDate}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Receipt
+                            </Button>
+                        )
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
