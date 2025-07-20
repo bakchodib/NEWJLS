@@ -26,6 +26,8 @@ export interface EMI {
   balance: number;
   status: 'Pending' | 'Paid';
   paymentDate?: string;
+  receiptNumber?: string;
+  paymentMethod?: 'Cash' | 'Online';
 }
 
 export interface LoanHistory {

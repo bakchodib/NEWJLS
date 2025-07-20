@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, MessageCircle } from 'lucide-react';
+import { CheckCircle, Clock, MessageCircle, Wallet, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -55,61 +55,44 @@ export default function LoanDetailsPage() {
     }
   }, [id]);
 
-  const handleMarkAsPaid = (emiId: string) => {
+  const handleCollectEmi = (emiId: string) => {
     if (!loan) return;
-    const updatedEmis = loan.emis.map(emi => 
-        emi.id === emiId ? { ...emi, status: 'Paid' as const, paymentDate: new Date().toISOString() } : emi
-    );
+    
+    let collectedEmi: EMI | undefined;
+    const updatedEmis = loan.emis.map(emi => {
+        if (emi.id === emiId) {
+            collectedEmi = { 
+                ...emi, 
+                status: 'Paid' as const, 
+                paymentDate: new Date().toISOString(),
+                paymentMethod: 'Cash', // Assuming cash collection for now
+                receiptNumber: `RCPT-${Date.now()}`
+            };
+            return collectedEmi;
+        }
+        return emi;
+    });
+
     const updatedLoan = { ...loan, emis: updatedEmis };
     setLoan(updatedLoan);
     updateLoan(updatedLoan);
+    
     toast({ title: 'Success', description: `EMI ${emiId} marked as paid.` });
     
-    setWhatsappPreview({
-        open: true,
-        message: `Dear ${loan.customerName}, your EMI payment of ₹${updatedLoan.emis.find(e=>e.id === emiId)?.amount} for loan ${loan.id} has been received. Thank you.`
-    });
-  };
-
-  const imageToDataUrl = async (url: string): Promise<string | null> => {
-    if (!url) return null;
-    // Use a CORS proxy to fetch images from other origins like imgbb
-    try {
-        const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-        if (!response.ok) throw new Error(`Image fetch failed for ${url}`);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        return new Promise((resolve, reject) => {
-            reader.readAsDataURL(blob);
-            reader.onloadend = () => {
-                resolve(reader.result as string);
-            };
-            reader.onerror = (error) => {
-                console.error("Error reading blob:", error);
-                reject(null);
-            }
+    if (collectedEmi) {
+        setWhatsappPreview({
+            open: true,
+            message: `Dear ${loan.customerName}, your EMI payment of ₹${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
         });
-    } catch (error) {
-        console.error(`Error fetching or processing image for PDF from ${url}:`, error);
-        return null;
     }
-  }
+  };
 
   const generateLoanCardPDF = async () => {
     if(!loan || !customer) return;
     const doc = new jsPDF();
     
-    let customerPhotoDataUrl: string | null = null;
-    if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
-        customerPhotoDataUrl = await imageToDataUrl(customer.customerPhoto);
-    }
-
     doc.setFontSize(18);
     doc.text(`FinanceFlow Inc.`, 14, 22);
-    
-    if (customerPhotoDataUrl) {
-      doc.addImage(customerPhotoDataUrl, 'PNG', doc.internal.pageSize.getWidth() - 34, 15, 20, 20);
-    }
 
     doc.setFontSize(11);
     doc.text(`Loan Card`, 14, 32);
@@ -137,18 +120,11 @@ export default function LoanDetailsPage() {
     
     const doc = new jsPDF();
     
-    let customerPhotoDataUrl: string | null = null;
-    if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
-        customerPhotoDataUrl = await imageToDataUrl(customer.customerPhoto);
-    } else if(customer.customerPhoto) { // Handle base64 urls directly
-        customerPhotoDataUrl = customer.customerPhoto;
-    }
-    
-    addAgreementContent(doc, customerPhotoDataUrl);
+    addAgreementContent(doc);
     doc.save(`loan_agreement_${loan.id}.pdf`);
   }
 
-  const addAgreementContent = (doc: jsPDF, photoDataUrl: string | null) => {
+  const addAgreementContent = (doc: jsPDF) => {
     if(!loan || !customer) return;
 
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -156,7 +132,7 @@ export default function LoanDetailsPage() {
     const margin = 14;
 
     const addHeader = (pageNumber: number) => {
-        doc.setFontSize(18);
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text('FinanceFlow Inc.', margin, margin + 2);
         doc.line(margin, margin + 8, pageWidth - margin, margin + 8);
@@ -181,10 +157,6 @@ export default function LoanDetailsPage() {
     doc.text(`Loan ID: ${loan.id}`, margin, 50);
     doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, pageWidth - margin, 50, { align: 'right' });
 
-    if(photoDataUrl) {
-        doc.addImage(photoDataUrl, 'PNG', pageWidth - margin - 30, 55, 25, 25);
-    }
-    
     // Parties
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
@@ -304,6 +276,75 @@ export default function LoanDetailsPage() {
     addFooter(doc.internal.pages.length);
   }
 
+  const generateEmiReceiptPDF = (emi: EMI) => {
+    if(!loan || !customer || !emi.paymentDate) return;
+    const doc = new jsPDF();
+    const margin = 14;
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FinanceFlow Inc.', margin, margin + 2);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Official Payment Receipt', margin, margin + 10);
+    doc.line(margin, margin + 14, pageWidth - margin, margin + 14);
+
+    // Receipt Details
+    doc.setFontSize(10);
+    const receiptY = margin + 25;
+    doc.text(`Receipt No:`, margin, receiptY);
+    doc.text(`${emi.receiptNumber}`, margin + 40, receiptY);
+
+    doc.text(`Payment Date:`, margin, receiptY + 7);
+    doc.text(`${new Date(emi.paymentDate).toLocaleString()}`, margin + 40, receiptY + 7);
+
+    // Customer & Loan Details
+    const detailsY = receiptY + 21;
+    doc.text(`Received from:`, margin, detailsY);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${customer.name} (ID: ${customer.id})`, margin + 40, detailsY);
+    doc.setFont('helvetica', 'normal');
+
+    doc.text(`For Loan ID:`, margin, detailsY + 7);
+    doc.text(`${loan.id}`, margin + 40, detailsY + 7);
+
+    // Payment Table
+    autoTable(doc, {
+        startY: detailsY + 15,
+        head: [['Description', 'Amount']],
+        body: [
+            ['EMI Amount Received', `₹ ${emi.amount.toLocaleString()}`],
+            ['  - Principal Component', `₹ ${emi.principal.toLocaleString()}`],
+            ['  - Interest Component', `₹ ${emi.interest.toLocaleString()}`],
+        ],
+        foot: [[
+            { content: 'Total Paid', styles: { fontStyle: 'bold', halign: 'right' } },
+            { content: `₹ ${emi.amount.toLocaleString()}`, styles: { fontStyle: 'bold' } }
+        ]],
+        theme: 'striped',
+        headStyles: { fillColor: [46, 71, 101] },
+    });
+    let finalY = (doc as any).lastAutoTable.finalY + 7;
+
+    doc.text(`Payment Method:`, margin, finalY);
+    doc.text(`${emi.paymentMethod}`, margin + 40, finalY);
+
+    doc.text(`Outstanding Balance after this payment:`, margin, finalY + 7);
+    doc.text(`₹ ${emi.balance.toLocaleString()}`, margin + 70, finalY + 7);
+
+
+    // Footer
+    doc.setFontSize(8);
+    doc.text('This is a computer-generated receipt and does not require a signature.', pageWidth / 2, pageHeight - margin, { align: 'center' });
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.line(margin, pageHeight - margin - 4, pageWidth - margin, pageHeight - margin - 4);
+
+
+    doc.save(`receipt_${emi.receiptNumber}.pdf`);
+  }
+
 
   if (!loan) return <div>Loading loan details or loan not found...</div>;
 
@@ -369,9 +410,15 @@ export default function LoanDetailsPage() {
                   </TableCell>
                   {(role === 'agent' || role === 'admin') && (
                     <TableCell>
-                      {emi.status === 'Pending' && (
-                        <Button variant="outline" size="sm" onClick={() => handleMarkAsPaid(emi.id)}>
-                          Mark as Paid
+                      {emi.status === 'Pending' ? (
+                        <Button variant="outline" size="sm" onClick={() => handleCollectEmi(emi.id)}>
+                          <Wallet className="mr-2 h-4 w-4" />
+                          Collect EMI
+                        </Button>
+                      ) : (
+                        <Button variant="secondary" size="sm" onClick={() => generateEmiReceiptPDF(emi)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Receipt
                         </Button>
                       )}
                     </TableCell>
