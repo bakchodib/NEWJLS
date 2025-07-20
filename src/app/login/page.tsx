@@ -82,20 +82,6 @@ export default function LoginPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleLogin)}>
               <CardContent className="space-y-6">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Demo Credentials</AlertTitle>
-                  <AlertDescription>
-                    <p className="font-medium">Admin Login:</p>
-                    <p className="font-mono text-sm">Email: <strong>admin@example.com</strong></p>
-                    <p className="font-mono text-sm">Password: <strong>password</strong></p>
-                    <Separator className="my-2" />
-                     <p className="font-medium">Agent Login:</p>
-                    <p className="font-mono text-sm">Email: <strong>agent@example.com</strong></p>
-                    <p className="font-mono text-sm">Password: <strong>password</strong></p>
-                    <p className="text-xs mt-2 text-muted-foreground">Note: You must create these users in Firebase Authentication and add corresponding role documents in your Firestore `users` collection.</p>
-                  </AlertDescription>
-                </Alert>
                 <FormField
                   control={form.control}
                   name="email"
