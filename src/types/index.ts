@@ -6,7 +6,13 @@ export interface Customer {
   phone: string;
   address: string;
   customerPhoto: string; // URL or base64 string
-  kycImage: string; // URL or base64 string
+  
+  // KYC Details
+  aadharNumber: string;
+  aadharImage: string; // URL or base64 string
+  panNumber: string;
+  panImage: string; // URL or base64 string
+
   guarantorName: string;
   guarantorPhone: string;
 }
