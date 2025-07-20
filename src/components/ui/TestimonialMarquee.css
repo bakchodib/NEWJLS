@@ -1,0 +1,44 @@
+
+.marquee {
+  display: flex;
+  overflow: hidden;
+  user-select: none;
+  gap: 2rem;
+  mask-image: linear-gradient(
+    to right,
+    hsl(0 0% 0% / 0),
+    hsl(0 0% 0% / 1) 10%,
+    hsl(0 0% 0% / 1) 90%,
+    hsl(0 0% 0% / 0)
+  );
+}
+
+.marquee-group {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 2rem;
+  min-width: 100%;
+  animation: scroll 40s linear infinite;
+}
+
+.marquee-reverse .marquee-group {
+    animation-direction: reverse;
+}
+
+
+@keyframes scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - 2rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-group {
+    animation: none;
+  }
+}

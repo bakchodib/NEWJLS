@@ -10,9 +10,10 @@ import { useRouter } from 'next/navigation';
 import CardSwap, { Card } from '@/components/ui/CardSwap';
 import '@/components/ui/CardSwap.css';
 import SplitText from '@/components/ui/SplitText';
-import ProfileCard from '@/components/ui/ProfileCard';
 import Aurora from '@/components/ui/Aurora';
 import StarBorder from '@/components/ui/StarBorder';
+import TestimonialCard from '@/components/ui/TestimonialCard';
+import '@/components/ui/TestimonialMarquee.css';
 
 
 export default function LandingPage() {
@@ -64,29 +65,59 @@ export default function LandingPage() {
     }
   ];
 
-  const testimonials = [
-      {
-          name: 'Ramesh Kumar',
-          title: 'Finance Manager',
-          quote: 'This platform has revolutionized how we manage our loan portfolio. The EMI tracking is a lifesaver!',
-          avatarUrl: 'https://placehold.co/400x600.png',
-          handle: 'rameshk',
-      },
-      {
-          name: 'Sunita Sharma',
-          title: 'Field Agent',
-          quote: 'Collecting EMIs has never been easier. I can see all my pending collections for the month in one place.',
-          avatarUrl: 'https://placehold.co/400x600.png',
-          handle: 'sunitasharma',
-      },
-      {
-          name: 'Anil Singh',
-          title: 'Small Business Owner',
-          quote: 'Getting a loan was quick and the process was very transparent. Highly recommend their services.',
-          avatarUrl: 'https://placehold.co/400x600.png',
-          handle: 'anilsingh'
-      }
-  ]
+  const testimonials1 = [
+    {
+      name: 'Lavneet',
+      handle: '@lavneet',
+      avatar: 'https://placehold.co/48x48.png',
+      testimonial: "This platform has revolutionized how we manage our loan portfolio. The EMI tracking is a lifesaver!"
+    },
+    {
+      name: 'Sunita Sharma',
+      handle: '@sunitasharma',
+      avatar: 'https://placehold.co/48x48.png',
+      testimonial: "Collecting EMIs has never been easier. I can see all my pending collections for the month in one place."
+    },
+    {
+      name: 'Amit Singh',
+      handle: '@amitsingh',
+      avatar: 'https://placehold.co/48x48.png',
+      testimonial: "The UI is so intuitive and easy to use. Onboarding new agents is a breeze now. Highly recommended."
+    },
+    {
+      name: 'Priya Patel',
+      handle: '@priyapatel',
+      avatar: 'https://placehold.co/48x48.png',
+      testimonial: "The PDF generation for loan agreements is a huge time-saver for us. Professional and quick."
+    }
+  ];
+
+   const testimonials2 = [
+    {
+      name: 'Jitendra',
+      handle: '@jitendra',
+      avatar: 'https://placehold.co/48x48.png',
+      testimonial: "The dashboard gives a fantastic overview of our operations. We can track overdue EMIs in real-time."
+    },
+    {
+      name: 'Sandeep',
+      handle: '@sandeep',
+      avatar: 'https://placehold.co/48x48.png',
+      testimonial: "As a small business owner, getting a loan was quick and the process was very transparent. Love it!"
+    },
+    {
+      name: 'Deepak Kumar',
+      handle: '@deepakk',
+      avatar: 'https://placehold.co/48x48.png',
+      testimonial: "Secure, reliable, and has all the features we need. It's the perfect tool for microfinance."
+    },
+    {
+      name: 'Neha Gupta',
+      handle: '@nehagupta',
+      avatar: 'https://placehold.co/48x48.png',
+      testimonial: "I'm really impressed with the top-up loan functionality. It's seamless and easy to manage."
+    }
+  ];
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -211,31 +242,33 @@ export default function LandingPage() {
           </div>
         </section>
 
-         {/* Part 4: Testimonials Section */}
-        <section id="testimonials" className="py-20 bg-muted/20">
-            <div className="container mx-auto px-4">
-                <div className="text-center mb-12">
-                    <h2 className="text-3xl md:text-4xl font-bold">Trusted by Finance Professionals</h2>
-                </div>
-                <div className="flex flex-col md:flex-row justify-center items-center gap-8 max-w-6xl mx-auto">
-                    {testimonials.map((testimonial, index) => (
-                         <div key={index} className="flex justify-center">
-                            <ProfileCard
-                                name={testimonial.name}
-                                title={testimonial.title}
-                                handle={testimonial.handle}
-                                avatarUrl={testimonial.avatarUrl}
-                                status="Online"
-                                contactText="View Profile"
-                                onContactClick={() => {}}
-                                showUserInfo={false}
-                                enableTilt={true}
-                            />
-                         </div>
-                    ))}
-                </div>
+        {/* Part 4: Testimonials Section */}
+        <section id="testimonials" className="py-20 bg-muted/20 relative">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold">Loved by Finance Professionals</h2>
+              <p className="text-lg text-muted-foreground mt-2">See what our partners are saying about us.</p>
             </div>
+          </div>
+          <div className="relative flex flex-col gap-8 overflow-hidden">
+            <div className="marquee">
+              <div className="marquee-group">
+                {[...testimonials1, ...testimonials1].map((testimonial, index) => (
+                  <TestimonialCard key={`t1-${index}`} {...testimonial} />
+                ))}
+              </div>
+            </div>
+            <div className="marquee marquee-reverse">
+              <div className="marquee-group">
+                {[...testimonials2, ...testimonials2].map((testimonial, index) => (
+                  <TestimonialCard key={`t2-${index}`} {...testimonial} />
+                ))}
+              </div>
+            </div>
+             <div className="absolute inset-0 bg-gradient-to-r from-muted/20 via-transparent to-muted/20 pointer-events-none"></div>
+          </div>
         </section>
+
 
         {/* Part 5: Final CTA */}
         <section id="cta" className="py-20">
