@@ -1,3 +1,4 @@
+
 import type { Customer, Loan, LoanStatus } from '@/types';
 
 const isClient = typeof window !== 'undefined';
@@ -34,6 +35,41 @@ export const addCustomer = (customer: Omit<Customer, 'id'>): Customer => {
   return newCustomer;
 };
 
+export const updateCustomer = (updatedCustomer: Customer): void => {
+    const customers = getCustomers();
+    const index = customers.findIndex(c => c.id === updatedCustomer.id);
+    if (index !== -1) {
+        const oldCustomer = customers[index];
+        customers[index] = updatedCustomer;
+        saveCustomers(customers);
+
+        // If customer name changed, update it in their loans
+        if (oldCustomer.name !== updatedCustomer.name) {
+            const loans = getLoans();
+            const updatedLoans = loans.map(loan => {
+                if (loan.customerId === updatedCustomer.id) {
+                    return { ...loan, customerName: updatedCustomer.name };
+                }
+                return loan;
+            });
+            saveLoans(updatedLoans);
+        }
+    }
+}
+
+export const deleteCustomer = (customerId: string): void => {
+    const customers = getCustomers();
+    const loans = getLoans();
+    // Prevent deletion if customer has loans
+    if (loans.some(loan => loan.customerId === customerId)) {
+        console.error("Cannot delete customer with existing loans.");
+        return;
+    }
+    const updatedCustomers = customers.filter(c => c.id !== customerId);
+    saveCustomers(updatedCustomers);
+}
+
+
 // Loan Functions
 export const getLoans = (): Loan[] => getFromStorage<Loan[]>('loans', []);
 
@@ -58,10 +94,19 @@ export const updateLoan = (updatedLoan: Loan): void => {
     const loans = getLoans();
     const index = loans.findIndex(l => l.id === updatedLoan.id);
     if(index !== -1) {
+        // If loan terms change before disbursal, we need to recalculate EMIs if it's disbursed later.
+        // The disburseLoan function already does this, so just updating is fine.
         loans[index] = updatedLoan;
         saveLoans(loans);
     }
 }
+
+export const deleteLoan = (loanId: string): void => {
+    const loans = getLoans();
+    const updatedLoans = loans.filter(l => l.id !== loanId);
+    saveLoans(updatedLoans);
+}
+
 
 export const disburseLoan = (loanId: string): Loan | null => {
     const loans = getLoans();
@@ -78,6 +123,7 @@ export const disburseLoan = (loanId: string): Loan | null => {
     const monthlyInterestRate = loan.interestRate / 12 / 100;
     const tenureInMonths = loan.tenure;
     
+    // PMT formula for EMI calculation
     const emiAmount = (principal * monthlyInterestRate * Math.pow(1 + monthlyInterestRate, tenureInMonths)) / (Math.pow(1 + monthlyInterestRate, tenureInMonths) - 1);
     
     let balance = principal;
@@ -95,7 +141,7 @@ export const disburseLoan = (loanId: string): Loan | null => {
             amount: parseFloat(emiAmount.toFixed(2)),
             principal: parseFloat(principalComponent.toFixed(2)),
             interest: parseFloat(interest.toFixed(2)),
-            balance: parseFloat(balance.toFixed(2)),
+            balance: parseFloat(Math.abs(balance) < 0.01 ? 0 : balance.toFixed(2)), // Set last balance to 0
             status: 'Pending' as const,
         });
     }

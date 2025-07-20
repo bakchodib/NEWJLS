@@ -1,22 +1,47 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCustomers } from '@/lib/storage';
+import { getCustomers, deleteCustomer, getLoans } from '@/lib/storage';
 import type { Customer } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const { role } = useAuth();
+  const { toast } = useToast();
   
   useEffect(() => {
     setCustomers(getCustomers());
   }, []);
+
+  const handleDelete = (customerId: string) => {
+    const loans = getLoans();
+    const hasLoans = loans.some(loan => loan.customerId === customerId);
+
+    if (hasLoans) {
+        toast({
+            title: 'Deletion Failed',
+            description: 'This customer has active or past loans and cannot be deleted.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
+    deleteCustomer(customerId);
+    setCustomers(getCustomers()); // Refresh the list
+    toast({
+        title: 'Customer Deleted',
+        description: 'The customer has been successfully deleted.',
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,6 +73,7 @@ export default function CustomersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Address</TableHead>
+                {(role === 'admin' || role === 'agent') && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -58,11 +84,45 @@ export default function CustomersPage() {
                     <TableCell>{customer.name}</TableCell>
                     <TableCell>{customer.phone}</TableCell>
                     <TableCell>{customer.address}</TableCell>
+                    {(role === 'admin' || role === 'agent') && (
+                        <TableCell className="text-right">
+                           <div className="flex gap-2 justify-end">
+                             <Button asChild variant="outline" size="icon">
+                                <Link href={`/customers/edit/${customer.id}`}>
+                                    <Pencil className="h-4 w-4"/>
+                                    <span className="sr-only">Edit</span>
+                                </Link>
+                             </Button>
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="icon">
+                                        <Trash2 className="h-4 w-4"/>
+                                        <span className="sr-only">Delete</span>
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the customer. You can only delete customers who do not have any loans.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDelete(customer.id)}>
+                                        Continue
+                                    </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                           </div>
+                        </TableCell>
+                    )}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">
+                  <TableCell colSpan={5} className="text-center">
                     No customers found.
                   </TableCell>
                 </TableRow>

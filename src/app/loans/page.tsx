@@ -2,19 +2,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getLoans } from '@/lib/storage';
+import { getLoans, deleteLoan } from '@/lib/storage';
 import type { Loan } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, Eye, FileText } from 'lucide-react';
+import { PlusCircle, Eye, FileText, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function LoansPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const { role } = useAuth();
+  const { toast } = useToast();
   
   useEffect(() => {
     const allLoans = getLoans();
@@ -29,6 +32,12 @@ export default function LoansPage() {
       case 'Closed': return <Badge variant="default" className="bg-green-600">Closed</Badge>;
       default: return <Badge>{status}</Badge>;
     }
+  }
+
+  const handleDelete = (loanId: string) => {
+    deleteLoan(loanId);
+    setLoans(getLoans().filter(l => l.status === 'Disbursed' || l.status === 'Closed'));
+    toast({ title: 'Loan Deleted', description: 'The loan has been permanently removed.' });
   }
 
   return (
@@ -71,7 +80,7 @@ export default function LoansPage() {
                 <TableHead>Interest Rate</TableHead>
                 <TableHead>Tenure</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -84,13 +93,39 @@ export default function LoansPage() {
                     <TableCell>{loan.interestRate}%</TableCell>
                     <TableCell>{loan.tenure} months</TableCell>
                     <TableCell>{getStatusBadge(loan.status)}</TableCell>
-                    <TableCell>
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/loans/${loan.id}`}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View
-                        </Link>
-                      </Button>
+                    <TableCell className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        <Button asChild variant="outline" size="sm">
+                            <Link href={`/loans/${loan.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View
+                            </Link>
+                        </Button>
+                        {role === 'admin' && (
+                           <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="icon">
+                                        <Trash2 className="h-4 w-4"/>
+                                        <span className="sr-only">Delete</span>
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the loan and all its associated EMI data.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDelete(loan.id)}>
+                                        Continue
+                                    </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

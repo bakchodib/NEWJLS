@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { getLoans, updateLoan, disburseLoan } from '@/lib/storage';
+import { getLoans, updateLoan, disburseLoan, deleteLoan } from '@/lib/storage';
 import type { Loan } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,7 +12,9 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BadgeCheck, XCircle, Hourglass, ChevronsRight } from 'lucide-react';
+import { BadgeCheck, XCircle, Hourglass, ChevronsRight, Pencil, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import Link from 'next/link';
 
 export default function LoanApplicationsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -48,6 +50,12 @@ export default function LoanApplicationsPage() {
     }
   }
 
+  const handleDelete = (loanId: string) => {
+    deleteLoan(loanId);
+    setLoans(getLoans());
+    toast({ title: 'Loan Deleted', description: 'The loan has been permanently removed.' });
+  }
+
   const filteredLoans = useMemo(() => ({
     pending: loans.filter(l => l.status === 'Pending'),
     approved: loans.filter(l => l.status === 'Approved'),
@@ -81,18 +89,50 @@ export default function LoanApplicationsPage() {
                 <TableCell>{loan.tenure} months</TableCell>
                 <TableCell><Badge variant={loan.status === 'Pending' ? 'secondary' : loan.status === 'Approved' ? 'default' : 'destructive'}>{loan.status}</Badge></TableCell>
                 <TableCell className="text-right">
-                    {type === 'Pending' && (
-                        <div className="flex gap-2 justify-end">
-                            <Button size="sm" variant="outline" className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => updateLoanStatus(loan.id, 'Approved')}><BadgeCheck className="mr-2"/>Approve</Button>
-                            <Button size="sm" variant="destructive" onClick={() => updateLoanStatus(loan.id, 'Rejected')}><XCircle className="mr-2"/>Reject</Button>
-                        </div>
-                    )}
-                    {type === 'Approved' && (
-                         <Button size="sm" onClick={() => handleDisburse(loan.id)}><ChevronsRight className="mr-2"/>Disburse</Button>
-                    )}
-                     {type === 'Rejected' && (
-                         <span className="text-xs text-muted-foreground">No actions available</span>
-                    )}
+                    <div className="flex gap-2 justify-end">
+                        {type === 'Pending' && (
+                            <>
+                                <Button size="sm" variant="outline" className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => updateLoanStatus(loan.id, 'Approved')}><BadgeCheck className="mr-2"/>Approve</Button>
+                                <Button size="sm" variant="destructive" onClick={() => updateLoanStatus(loan.id, 'Rejected')}><XCircle className="mr-2"/>Reject</Button>
+                            </>
+                        )}
+                        {type === 'Approved' && (
+                             <Button size="sm" onClick={() => handleDisburse(loan.id)}><ChevronsRight className="mr-2"/>Disburse</Button>
+                        )}
+                         {type === 'Rejected' && (
+                             <span className="text-xs text-muted-foreground">No actions available</span>
+                        )}
+                        {(type === 'Pending' || type === 'Approved') && (
+                             <Button asChild variant="outline" size="icon">
+                                <Link href={`/loans/edit/${loan.id}`}>
+                                    <Pencil className="h-4 w-4"/>
+                                    <span className="sr-only">Edit</span>
+                                </Link>
+                             </Button>
+                        )}
+                         <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon">
+                                    <Trash2 className="h-4 w-4"/>
+                                    <span className="sr-only">Delete</span>
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the loan application.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(loan.id)}>
+                                    Continue
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
                 </TableCell>
                 </TableRow>
             ))
