@@ -165,9 +165,9 @@ export const disburseLoan = async (loanId: string, disbursalDate: Date): Promise
 }
 
 
-function calculateEmis(loan: Loan, principal: number, newTenure?: number): EMI[] {
+function calculateEmis(loan: Loan, principal: number, tenure?: number, startDate?: Date): EMI[] {
     const monthlyInterestRate = loan.interestRate / 12 / 100;
-    const tenureInMonths = newTenure || loan.tenure;
+    const tenureInMonths = tenure || loan.tenure;
 
     if (principal <= 0 || monthlyInterestRate <= 0 || tenureInMonths <= 0) {
         return [];
@@ -177,7 +177,7 @@ function calculateEmis(loan: Loan, principal: number, newTenure?: number): EMI[]
     
     let balance = principal;
     const newEmis: EMI[] = [];
-    const baseDate = loan.disbursalDate ? new Date(loan.disbursalDate) : new Date();
+    const baseDate = startDate || (loan.disbursalDate ? new Date(loan.disbursalDate) : new Date());
 
     for (let i = 0; i < tenureInMonths; i++) {
         const interest = balance * monthlyInterestRate;
@@ -213,15 +213,24 @@ export const prepayLoan = async (loanId: string, amount: number): Promise<void> 
     loan.history.push({
         date: new Date().toISOString(),
         amount: amount,
-        description: `Prepayment of ${amount} received.`,
+        description: `Prepayment of ${amount} received. EMI amount recalculated.`,
     });
     
-    const remainingPendingEmis = loan.emis.filter(e => e.status === 'Pending');
-    const newTenure = remainingPendingEmis.length;
-    
-    const newEmis = calculateEmis(loan, loan.principalRemaining, newTenure);
-    
     const paidEmis = loan.emis.filter(e => e.status === 'Paid');
+    const pendingEmis = loan.emis.filter(e => e.status === 'Pending');
+    const remainingTenure = pendingEmis.length;
+    
+    if (remainingTenure <= 0) { // If all EMIs are paid, just update principal
+        await updateLoan(loan);
+        return;
+    }
+
+    const nextDueDate = new Date(pendingEmis[0].dueDate);
+    const lastPaymentDate = paidEmis.length > 0 ? new Date(paidEmis[paidEmis.length - 1].dueDate) : new Date(loan.disbursalDate);
+
+    // We pass the last payment date to calculate the next due date correctly.
+    const newEmis = calculateEmis(loan, loan.principalRemaining, remainingTenure, lastPaymentDate);
+    
     loan.emis = [...paidEmis, ...newEmis];
 
     await updateLoan(loan);
@@ -242,12 +251,14 @@ export const topupLoan = async (loanId: string, topupAmount: number, newTenure?:
         description: `Top-up of ${topupAmount} disbursed.`,
     });
     
-    const remainingPendingEmis = loan.emis.filter(e => e.status === 'Pending');
-    const tenureForRecalculation = newTenure || remainingPendingEmis.length;
-
-    const newEmis = calculateEmis(loan, loan.principalRemaining, tenureForRecalculation);
-    
     const paidEmis = loan.emis.filter(e => e.status === 'Paid');
+    const lastPaymentDate = paidEmis.length > 0 ? new Date(paidEmis[paidEmis.length - 1].dueDate) : new Date(loan.disbursalDate);
+    
+    const remainingPendingEmisCount = loan.emis.filter(e => e.status === 'Pending').length;
+    const tenureForRecalculation = newTenure || remainingPendingEmisCount;
+
+    const newEmis = calculateEmis(loan, loan.principalRemaining, tenureForRecalculation, lastPaymentDate);
+    
     loan.emis = [...paidEmis, ...newEmis];
     loan.tenure = loan.emis.length;
 
