@@ -11,7 +11,10 @@ import {
     getDoc,
     query,
     where,
-    writeBatch
+    writeBatch,
+    orderBy,
+    limit,
+    setDoc
 } from 'firebase/firestore';
 
 // Customer Functions
@@ -82,15 +85,30 @@ export const getCustomerById = async (customerId: string): Promise<Customer | nu
 
 
 export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate'>): Promise<Loan> => {
-  const newLoanData = { 
-      ...loan, 
-      status: 'Pending' as LoanStatus,
-      disbursalDate: '', 
-      emis: [],
-      history: [],
-  };
-  const docRef = await addDoc(loansCollection, newLoanData);
-  return { id: docRef.id, ...newLoanData };
+    // Get the last loan to determine the new ID
+    const lastLoanQuery = query(loansCollection, orderBy("id", "desc"), limit(1));
+    const lastLoanSnapshot = await getDocs(lastLoanQuery);
+
+    let newLoanId = 1000100;
+    if (!lastLoanSnapshot.empty) {
+        const lastLoanId = parseInt(lastLoanSnapshot.docs[0].id, 10);
+        newLoanId = lastLoanId + 100;
+    }
+
+    const newLoanData = { 
+        ...loan,
+        id: String(newLoanId),
+        status: 'Pending' as LoanStatus,
+        disbursalDate: '', 
+        emis: [],
+        history: [],
+    };
+    
+    // Use setDoc with the custom ID
+    const loanDocRef = doc(db, 'loans', newLoanData.id);
+    await setDoc(loanDocRef, newLoanData);
+
+    return newLoanData;
 };
 
 export const updateLoan = async (updatedLoan: Loan): Promise<void> => {
