@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -38,6 +39,12 @@ export default function DisburseLoanPage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      customerId: '',
+      amount: undefined, // Using undefined for numbers is okay with RHF + Zod coerce
+      interestRate: undefined,
+      tenure: undefined,
+    },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -107,7 +114,7 @@ export default function DisburseLoanPage() {
                   <FormItem>
                     <FormLabel>Loan Amount ($)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="50000" {...field} />
+                      <Input type="number" placeholder="50000" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -120,7 +127,7 @@ export default function DisburseLoanPage() {
                   <FormItem>
                     <FormLabel>Annual Interest Rate (%)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.1" placeholder="12.5" {...field} />
+                      <Input type="number" step="0.1" placeholder="12.5" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -133,7 +140,7 @@ export default function DisburseLoanPage() {
                   <FormItem>
                     <FormLabel>Tenure (in months)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="36" {...field} />
+                      <Input type="number" placeholder="36" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
