@@ -60,12 +60,10 @@ export default function LoanDetailsPage() {
   }, [id]);
 
    const imageToDataUri = async (url: string): Promise<string | null> => {
-        // A server-side proxy would be more robust for CORS issues.
-        // For this demo, we'll try a public CORS proxy.
-        // Note: Public proxies are not suitable for production.
+        // Attempt direct fetch first
         try {
-            const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-            if (!response.ok) throw new Error('Failed to fetch image via proxy');
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Direct fetch failed with status: ' + response.status);
             const blob = await response.blob();
             const reader = new FileReader();
             return new Promise((resolve, reject) => {
@@ -73,24 +71,25 @@ export default function LoanDetailsPage() {
                 reader.onerror = reject;
                 reader.readAsDataURL(blob);
             });
-        } catch (error) {
-            console.error('Failed to fetch or convert image:', error);
-            // Fallback to trying direct fetch if proxy fails
+        } catch (directError) {
+            console.warn('Direct image fetch failed, trying proxy. Error:', directError);
+            // Fallback to CORS proxy if direct fetch fails
             try {
-                 const directResponse = await fetch(url);
-                 if (!directResponse.ok) throw new Error('Direct fetch failed');
-                 const blob = await directResponse.blob();
-                 const reader = new FileReader();
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                const proxyResponse = await fetch(proxyUrl);
+                if (!proxyResponse.ok) throw new Error('Proxy fetch failed with status: ' + proxyResponse.status);
+                const blob = await proxyResponse.blob();
+                const reader = new FileReader();
                  return new Promise((resolve, reject) => {
                     reader.onloadend = () => resolve(reader.result as string);
                     reader.onerror = reject;
                     reader.readAsDataURL(blob);
                 });
-            } catch (directError) {
-                 console.error('Direct image fetch failed:', directError);
+            } catch (proxyError) {
+                 console.error('All image fetch attempts failed:', proxyError);
                  toast({
                     title: 'Image Load Failed',
-                    description: 'Could not load customer photo for the PDF. The PDF will be generated without it.',
+                    description: 'Could not load customer photo for the PDF. It will be generated without it.',
                     variant: 'destructive'
                 });
                 return null;
