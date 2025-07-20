@@ -17,6 +17,7 @@ import autoTable from 'jspdf-autotable';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { format } from 'date-fns';
 
 
 function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpenChange: (open: boolean) => void, message: string }) {
@@ -60,27 +61,7 @@ function loadImage(url: string): Promise<string> {
         reject(new Error("Failed to convert image to data URL."));
       }
     };
-    img.onerror = () => {
-        // Fallback to CORS proxy if direct load fails
-        const proxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
-        const proxyImg = new Image();
-        proxyImg.crossOrigin = "anonymous";
-        proxyImg.onload = () => {
-             const canvas = document.createElement("canvas");
-            canvas.width = proxyImg.width;
-            canvas.height = proxyImg.height;
-            const ctx = canvas.getContext("2d");
-            ctx?.drawImage(proxyImg, 0, 0);
-            try {
-                const dataUrl = canvas.toDataURL("image/jpeg");
-                resolve(dataUrl);
-            } catch (e) {
-                reject(new Error("Failed to convert proxied image to data URL."));
-            }
-        };
-        proxyImg.onerror = () => reject(new Error('Failed to fetch image via proxy'));
-        proxyImg.src = proxyUrl;
-    };
+    img.onerror = () => reject(new Error('Failed to fetch image directly.'));
     img.src = url;
   });
 }
@@ -111,7 +92,7 @@ async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 15, 30);
+  doc.text(`Generated on: ${format(new Date(), 'dd-MM-yyyy')}`, 15, 30);
 
   // Customer Photo (top right)
   if (customer.customerPhoto) {
@@ -131,7 +112,7 @@ async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[
         ["Loan Amount:", `₹${formatCurrency(loan.amount)}`],
         ["Interest Rate:", `${loan.interestRate}% p.a.`],
         ["Tenure:", `${loan.tenure} months`],
-        ["Disbursal Date:", new Date(loan.disbursalDate).toLocaleDateString()],
+        ["Disbursal Date:", format(new Date(loan.disbursalDate), 'dd-MM-yyyy')],
     ];
 
     autoTable(doc, {
@@ -154,7 +135,7 @@ async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[
   // EMI Schedule Table
   const tableData = emiList.map((emi, i) => [
     `${i + 1}`,
-    new Date(emi.dueDate).toLocaleDateString(),
+    format(new Date(emi.dueDate), 'dd-MM-yyyy'),
     `₹${formatCurrency(emi.amount)}`,
     `₹${formatCurrency(emi.principal)}`,
     `₹${formatCurrency(emi.interest)}`,
@@ -274,7 +255,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   doc.text("Loan Agreement Document", 105, 23, { align: "center" });
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 30);
+  doc.text(`Date: ${format(new Date(), 'dd-MM-yyyy')}`, 15, 30);
   doc.setLineWidth(0.5);
   doc.line(15, 32, pageWidth - 15, 32);
 
@@ -345,7 +326,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
         ["Net Disbursed Amount:", `\u20B9${formatCurrency(netDisbursed)}`],
         ["Interest Rate:", `${loan.interestRate}% p.a.`],
         ["Tenure:", `${loan.tenure} months`],
-        ["Disbursal Date:", new Date(loan.disbursalDate).toLocaleDateString()],
+        ["Disbursal Date:", format(new Date(loan.disbursalDate), 'dd-MM-yyyy')],
     ],
     theme: 'plain',
     tableWidth: 120,
@@ -399,7 +380,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
 
   const emiTable = emiList.map((emi, i) => [
     `${i + 1}`,
-    new Date(emi.dueDate).toLocaleDateString(),
+    format(new Date(emi.dueDate), 'dd-MM-yyyy'),
     `\u20B9${formatCurrency(emi.amount)}`,
     emi.status,
   ]);
@@ -448,7 +429,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
         startY: margin + 30,
         body: [
             [{ content: 'Receipt No:', styles: { fontStyle: 'bold' } }, emi.receiptNumber || 'N/A'],
-            [{ content: 'Payment Date:', styles: { fontStyle: 'bold' } }, new Date(emi.paymentDate).toLocaleString()],
+            [{ content: 'Payment Date:', styles: { fontStyle: 'bold' } }, format(new Date(emi.paymentDate), 'dd-MM-yyyy hh:mm a')],
         ],
         theme: 'plain',
         styles: { fontSize: 9 }
@@ -568,7 +549,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
                 <div><span className="font-medium text-muted-foreground">Interest Rate:</span> <span className="font-bold">{loan.interestRate}% p.a.</span></div>
                 <div><span className="font-medium text-muted-foreground">Tenure:</span> <span className="font-bold">{loan.tenure} months</span></div>
                  <div><span className="font-medium text-muted-foreground">Processing Fee:</span> <span className="font-bold">{loan.processingFee}%</span></div>
-                <div><span className="font-medium text-muted-foreground">Disbursed:</span> <span className="font-bold">{loan.disbursalDate ? new Date(loan.disbursalDate).toLocaleDateString() : 'N/A'}</span></div>
+                <div><span className="font-medium text-muted-foreground">Disbursed:</span> <span className="font-bold">{loan.disbursalDate ? format(new Date(loan.disbursalDate), 'dd-MM-yyyy') : 'N/A'}</span></div>
             </div>
         </CardContent>
       </Card>
@@ -592,7 +573,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
             <TableBody>
               {loan.emis.map((emi) => (
                 <TableRow key={emi.id}>
-                  <TableCell>{new Date(emi.dueDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{format(new Date(emi.dueDate), 'dd-MM-yyyy')}</TableCell>
                   <TableCell>₹{emi.amount.toLocaleString()}</TableCell>
                   <TableCell>₹{emi.principal.toLocaleString()}</TableCell>
                   <TableCell>₹{emi.interest.toLocaleString()}</TableCell>

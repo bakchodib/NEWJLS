@@ -146,8 +146,11 @@ function calculateEmis(loan: Loan) {
         const interest = balance * monthlyInterestRate;
         const principalComponent = emiAmount - interest;
         balance -= principalComponent;
+        
+        // New EMI date logic: Always on the 1st of the next month
         const dueDate = new Date(disbursalDate);
-        dueDate.setMonth(dueDate.getMonth() + i + 1);
+        dueDate.setMonth(dueDate.getMonth() + i + 1, 1); // Set day to 1st
+        dueDate.setHours(0, 0, 0, 0); // Reset time part
         
         newEmis.push({
             id: `${loan.id}_EMI_${i+1}`,

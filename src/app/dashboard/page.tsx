@@ -10,6 +10,7 @@ import { Users, Landmark, DollarSign, AlertCircle, CheckCircle, Hourglass } from
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
 const AdminDashboard = ({ stats }: { stats: any }) => (
   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -174,7 +175,7 @@ export default function DashboardPage() {
                 dashboardStats = {
                     activeLoans: activeLoans.length,
                     totalOutstanding: outstandingEmis.reduce((acc, emi) => acc + emi.amount, 0),
-                    nextEmiDate: nextEmi ? new Date(nextEmi.dueDate).toLocaleDateString() : 'N/A',
+                    nextEmiDate: nextEmi ? format(new Date(nextEmi.dueDate), 'dd-MM-yyyy') : 'N/A',
                     nextEmiAmount: nextEmi ? nextEmi.amount : 0,
                 };
             }

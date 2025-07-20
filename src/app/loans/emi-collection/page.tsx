@@ -64,7 +64,7 @@ export default function EmiCollectionPage() {
         const [loans, customers] = await Promise.all([getLoans(), getCustomers()]);
         
         const customersMap = new Map(customers.map(c => [c.id, c]));
-        const disbursedLoans = loans.filter(l => l.status === 'Disbursed');
+        const disbursedLoans = loans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
         
         const selectedMonth = getMonth(selectedDate);
         const selectedYear = getYear(selectedDate);
@@ -265,7 +265,7 @@ export default function EmiCollectionPage() {
                         <div>{emi.customer.name}</div>
                         <div className="text-xs text-muted-foreground">{emi.customer.phone}</div>
                     </TableCell>
-                    <TableCell>{format(new Date(emi.dueDate), 'dd-MMM-yyyy')}</TableCell>
+                    <TableCell>{format(new Date(emi.dueDate), 'dd-MM-yyyy')}</TableCell>
                     <TableCell className="font-bold">₹{emi.amount.toLocaleString()}</TableCell>
                     <TableCell className="text-right">
                         <Button size="sm" onClick={() => handleCollectEmi(emi.loanId, emi.id)}>
