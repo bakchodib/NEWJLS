@@ -1,46 +1,64 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Shield, Briefcase } from 'lucide-react';
+import { Briefcase, AlertCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
-  role: z.enum(['customer', 'agent', 'admin'], {
-    required_error: 'Please select a role.',
-  }),
+  email: z.string().email({ message: "Please enter a valid email." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
 export default function LoginPage() {
-  const { role, setRole, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    }
   });
 
   useEffect(() => {
-    if (role) {
+    if (!loading && user) {
       router.replace('/dashboard');
     }
-  }, [role, router]);
+  }, [user, loading, router]);
 
-  const handleLogin = (values: z.infer<typeof formSchema>) => {
-    if (values.role) {
-      setRole(values.role);
+  const handleLogin = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true);
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      // AuthProvider's useEffect will handle the redirect
+    } catch (error: any) {
+      toast({
+        title: 'Login Failed',
+        description: error.message || 'Invalid email or password. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  if (loading || role) {
+  if (loading || user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="text-lg font-semibold">Loading...</div>
@@ -57,52 +75,41 @@ export default function LoginPage() {
               <Briefcase className="h-8 w-8" />
             </div>
             <CardTitle className="text-3xl font-bold text-primary">JLS FINACE LTD</CardTitle>
-            <CardDescription className="text-muted-foreground">Select a role to sign in</CardDescription>
+            <CardDescription className="text-muted-foreground">Admin & Agent Login</CardDescription>
           </CardHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleLogin)}>
               <CardContent className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="role"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <Label htmlFor="role">User Role</Label>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger id="role" className="w-full">
-                            <SelectValue placeholder="Select a role..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="customer">
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              <span>Customer</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="agent">
-                            <div className="flex items-center gap-2">
-                              <Briefcase className="h-4 w-4" />
-                              <span>Agent</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="admin">
-                            <div className="flex items-center gap-2">
-                              <Shield className="h-4 w-4" />
-                              <span>Admin</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="email">Email Address</Label>
+                      <FormControl>
+                        <Input id="email" type="email" placeholder="admin@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Label htmlFor="password">Password</Label>
+                       <FormControl>
+                        <Input id="password" type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </CardContent>
               <CardFooter>
-                <Button type="submit" className="w-full bg-accent hover:bg-accent/90">
-                  Sign In
+                <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={isSubmitting}>
+                  {isSubmitting ? 'Signing In...' : 'Sign In'}
                 </Button>
               </CardFooter>
             </form>

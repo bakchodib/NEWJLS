@@ -44,20 +44,13 @@ const navItemsMap = {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { role, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !role && pathname !== '/') {
-      router.replace('/');
-    }
-  }, [role, loading, router, pathname]);
-
+  const { user, loading } = useAuth();
+  
   if (pathname === '/') {
     return <>{children}</>;
   }
 
-  if (loading || !role) {
+  if (loading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="text-lg font-semibold">Loading application...</div>

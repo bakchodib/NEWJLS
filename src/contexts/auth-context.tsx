@@ -1,58 +1,79 @@
+
 'use client';
 
 import { createContext, useState, useEffect, useContext, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 type Role = 'admin' | 'agent' | 'customer';
 
-interface AuthContextType {
+interface AppUser {
+  uid: string;
   role: Role | null;
-  setRole: (role: Role) => void;
-  logout: () => void;
+  name?: string;
+}
+
+interface AuthContextType {
+  user: AppUser | null;
   loading: boolean;
+  logout: () => void;
+  role: Role | null; // Keep for compatibility with existing components
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    try {
-      const storedRole = localStorage.getItem('userRole') as Role | null;
-      if (storedRole) {
-        setRoleState(storedRole);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
+      if (firebaseUser) {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const appUser: AppUser = {
+            uid: firebaseUser.uid,
+            role: userData.role as Role,
+            name: userData.name,
+          };
+          setUser(appUser);
+          if (pathname === '/') {
+            router.replace('/dashboard');
+          }
+        } else {
+          // User exists in Auth but not in Firestore users collection
+          setUser(null);
+          router.replace('/');
+        }
+      } else {
+        setUser(null);
+        if (pathname !== '/') {
+           router.replace('/');
+        }
       }
-    } catch (error) {
-      console.error('Failed to access local storage', error);
-    } finally {
       setLoading(false);
-    }
-  }, []);
+    });
 
-  const setRole = (newRole: Role) => {
+    return () => unsubscribe();
+  }, [router, pathname]);
+
+  const logout = async () => {
     try {
-      localStorage.setItem('userRole', newRole);
+      await signOut(auth);
+      setUser(null);
+      router.push('/');
     } catch (error) {
-      console.error('Failed to access local storage', error);
+      console.error('Logout failed:', error);
     }
-    setRoleState(newRole);
-    router.push('/dashboard');
   };
 
-  const logout = () => {
-    try {
-      localStorage.removeItem('userRole');
-    } catch (error) {
-      console.error('Failed to access local storage', error);
-    }
-    setRoleState(null);
-    router.push('/');
-  };
-
-  const value = { role, setRole, logout, loading };
+  const value = { user, loading, logout, role: user?.role || null };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

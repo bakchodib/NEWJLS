@@ -24,12 +24,12 @@ const getTitleFromPath = (path: string) => {
 };
 
 export function Header({children}: {children?: React.ReactNode}) {
-  const { role, logout } = useAuth();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
   const title = getTitleFromPath(pathname);
 
   const getRoleIcon = () => {
-    switch (role) {
+    switch (user?.role) {
       case 'admin':
         return <Shield className="h-4 w-4 text-muted-foreground" />;
       case 'agent':
@@ -41,7 +41,12 @@ export function Header({children}: {children?: React.ReactNode}) {
     }
   };
 
-  const getInitials = (role: string) => role.charAt(0).toUpperCase();
+  const getInitials = (name?: string) => {
+    if (name) {
+        return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    }
+    return user?.role ? user.role.charAt(0).toUpperCase() : 'U';
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
@@ -52,18 +57,18 @@ export function Header({children}: {children?: React.ReactNode}) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={`https://placehold.co/100x100.png`} alt={role || 'User'} />
-                <AvatarFallback>{role ? getInitials(role) : 'U'}</AvatarFallback>
+                <AvatarImage src={`https://placehold.co/100x100.png`} alt={user?.name || 'User'} />
+                <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Signed in as</p>
+                <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
                 <div className="flex items-center gap-2">
                     {getRoleIcon()}
-                    <p className="text-xs leading-none text-muted-foreground capitalize">{role}</p>
+                    <p className="text-xs leading-none text-muted-foreground capitalize">{user?.role}</p>
                 </div>
               </div>
             </DropdownMenuLabel>
