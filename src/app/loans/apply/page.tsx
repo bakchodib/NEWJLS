@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { addLoan, getCustomers, getLoans } from '@/lib/storage';
+import { addLoan, getAvailableCustomers } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -44,14 +44,8 @@ export default function LoanApplicationPage() {
     const fetchData = async () => {
         setIsFetchingCustomers(true);
         try {
-            const [fetchedCustomers, allLoans] = await Promise.all([
-                getCustomers(),
-                getLoans()
-            ]);
-            
-            const customerIdsWithLoans = new Set(allLoans.map(loan => loan.customerId));
-            const availableCustomers = fetchedCustomers.filter(customer => !customerIdsWithLoans.has(customer.id));
-
+            // Optimized to fetch only customers without active loans
+            const availableCustomers = await getAvailableCustomers();
             setCustomers(availableCustomers);
         } catch(error) {
             toast({ title: 'Error', description: 'Failed to load available customers.', variant: 'destructive' });

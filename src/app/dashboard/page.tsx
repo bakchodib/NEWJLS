@@ -149,11 +149,11 @@ export default function DashboardPage() {
   const searchParams = useSearchParams(); // Also watch for query param changes
 
   const fetchStats = useCallback(async () => {
+    if (!role) return;
     try {
         setStats(null); // Set to null to show skeleton while fetching
-        const customers = await getCustomers();
-        const loans = await getLoans();
-        const allEmis = loans.flatMap(l => l.emis);
+        const [customers, loans] = await Promise.all([getCustomers(), getLoans()]);
+        
         const now = new Date();
         
         let dashboardStats = {};
@@ -176,7 +176,7 @@ export default function DashboardPage() {
                 totalCustomers: customers.length,
                 totalLoans: disbursedLoans.length,
                 netDisbursed: netDisbursed,
-                overdueEmis: allPendingEmis.filter(emi => new Date(emi.dueDate) < now).length,
+                overdueEmis: allPendingEmis.filter(emi => new Date(emi.dueDate) < now && emi.status === 'Pending').length,
                 upcomingEmis: allPendingEmis.filter(emi => new Date(emi.dueDate) >= today && new Date(emi.dueDate) <= nextWeek).length
             };
         } else if (role === 'customer') {
@@ -204,7 +204,8 @@ export default function DashboardPage() {
     if (!loading && role) {
         fetchStats();
     }
-  }, [role, loading, fetchStats, pathname, searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, loading, pathname, searchParams]); // fetchStats is now stable due to useCallback
 
 
   if (!stats) return <DashboardSkeleton />;

@@ -27,6 +27,18 @@ export const getCustomers = async (): Promise<Customer[]> => {
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
 };
 
+export const getAvailableCustomers = async (): Promise<Customer[]> => {
+    const [customersSnapshot, loansSnapshot] = await Promise.all([
+        getDocs(query(customersCollection, orderBy("id"))),
+        getDocs(query(loansCollection, where("status", "in", ["Pending", "Approved", "Disbursed"])))
+    ]);
+    
+    const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
+    const customerIdsWithActiveLoans = new Set(loansSnapshot.docs.map(loan => loan.data().customerId));
+
+    return customers.filter(customer => !customerIdsWithActiveLoans.has(customer.id));
+}
+
 export const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
   const lastCustomerQuery = query(customersCollection, orderBy("id", "desc"), limit(1));
   const lastCustomerSnapshot = await getDocs(lastCustomerQuery);

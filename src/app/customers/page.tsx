@@ -39,18 +39,7 @@ export default function CustomersPage() {
 
   const handleDelete = async (customerId: string) => {
     try {
-      const loans = await getLoans();
-      const hasLoans = loans.some(loan => loan.customerId === customerId);
-
-      if (hasLoans) {
-          toast({
-              title: 'Deletion Failed',
-              description: 'This customer has active or past loans and cannot be deleted.',
-              variant: 'destructive',
-          });
-          return;
-      }
-
+      // This logic is now handled by the storage function, which is more efficient.
       await deleteCustomer(customerId);
       await fetchCustomers(); // Refresh the list from Firestore
       toast({
