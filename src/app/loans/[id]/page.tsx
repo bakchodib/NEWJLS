@@ -55,6 +55,30 @@ export default function LoanDetailsPage() {
     }
   }, [id]);
 
+   const imageToDataUri = async (url: string): Promise<string | null> => {
+        // Since ImgBB might have CORS issues, we can try to use a proxy, but for this app, we'll assume direct fetch works.
+        // A more robust solution might involve a server-side endpoint to fetch the image.
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            return new Promise((resolve, reject) => {
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error('Failed to fetch or convert image:', error);
+            toast({
+                title: 'Image Load Failed',
+                description: 'Could not load customer photo for the PDF. The PDF will be generated without it.',
+                variant: 'destructive'
+            });
+            return null;
+        }
+    };
+
+
   const handleCollectEmi = (emiId: string) => {
     if (!loan) return;
     
@@ -74,8 +98,18 @@ export default function LoanDetailsPage() {
     });
 
     const updatedLoan = { ...loan, emis: updatedEmis };
-    setLoan(updatedLoan);
-    updateLoan(updatedLoan);
+    
+    const allLoans = getLoans();
+    const loanIndex = allLoans.findIndex(l => l.id === loan.id);
+    if(loanIndex !== -1) {
+        const remainingPending = updatedLoan.emis.filter(e => e.status === 'Pending').length;
+        if (remainingPending === 0) {
+            updatedLoan.status = 'Closed';
+        }
+        allLoans[loanIndex] = updatedLoan;
+        updateLoan(updatedLoan); // This updates the loan in storage.
+        setLoan(updatedLoan); // This updates the local state to re-render the page.
+    }
     
     toast({ title: 'Success', description: `EMI ${emiId} marked as paid.` });
     
@@ -91,6 +125,8 @@ export default function LoanDetailsPage() {
     if(!loan || !customer) return;
     const doc = new jsPDF();
     
+    const customerPhotoDataUri = await imageToDataUri(customer.customerPhoto);
+    
     doc.setFontSize(18);
     doc.text(`FinanceFlow Inc.`, 14, 22);
 
@@ -98,6 +134,10 @@ export default function LoanDetailsPage() {
     doc.text(`Loan Card`, 14, 32);
     doc.text(`Loan ID: ${loan.id}`, 14, 38);
     doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 44);
+    
+    if (customerPhotoDataUri) {
+        doc.addImage(customerPhotoDataUri, 'JPEG', 150, 15, 30, 30);
+    }
     
     autoTable(doc, {
         startY: 50,
@@ -120,12 +160,14 @@ export default function LoanDetailsPage() {
     
     const doc = new jsPDF();
     
-    addAgreementContent(doc);
+    await addAgreementContent(doc);
     doc.save(`loan_agreement_${loan.id}.pdf`);
   }
 
-  const addAgreementContent = (doc: jsPDF) => {
+  const addAgreementContent = async (doc: jsPDF) => {
     if(!loan || !customer) return;
+
+    const customerPhotoDataUri = await imageToDataUri(customer.customerPhoto);
 
     const pageHeight = doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -148,6 +190,10 @@ export default function LoanDetailsPage() {
     // ===== PAGE 1 =====
     addHeader(1);
 
+    if (customerPhotoDataUri) {
+        doc.addImage(customerPhotoDataUri, 'JPEG', pageWidth - margin - 30, 25, 30, 30);
+    }
+
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.text('Private & Confidential Loan Agreement', pageWidth / 2, 40, { align: 'center' });
@@ -155,16 +201,17 @@ export default function LoanDetailsPage() {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Loan ID: ${loan.id}`, margin, 50);
-    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, pageWidth - margin, 50, { align: 'right' });
+    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, margin, 55);
+
 
     // Parties
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('1. Parties to the Agreement', margin, 60);
+    doc.text('1. Parties to the Agreement', margin, 70);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     autoTable(doc, {
-        startY: 65,
+        startY: 75,
         theme: 'plain',
         tableWidth: 120,
         styles: { fontSize: 9, cellPadding: 1, overflow: 'linebreak' },
@@ -276,11 +323,14 @@ export default function LoanDetailsPage() {
     addFooter(doc.internal.pages.length);
   }
 
-  const generateEmiReceiptPDF = (emi: EMI) => {
+  const generateEmiReceiptPDF = async (emi: EMI) => {
     if(!loan || !customer || !emi.paymentDate) return;
     const doc = new jsPDF();
     const margin = 14;
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    const customerPhotoDataUri = await imageToDataUri(customer.customerPhoto);
 
     // Header
     doc.setFontSize(18);
@@ -291,6 +341,10 @@ export default function LoanDetailsPage() {
     doc.text('Official Payment Receipt', margin, margin + 10);
     doc.line(margin, margin + 14, pageWidth - margin, margin + 14);
 
+    if (customerPhotoDataUri) {
+        doc.addImage(customerPhotoDataUri, 'JPEG', pageWidth - margin - 25, margin + 18, 25, 25);
+    }
+    
     // Receipt Details
     doc.setFontSize(10);
     const receiptY = margin + 25;
@@ -338,7 +392,6 @@ export default function LoanDetailsPage() {
     // Footer
     doc.setFontSize(8);
     doc.text('This is a computer-generated receipt and does not require a signature.', pageWidth / 2, pageHeight - margin, { align: 'center' });
-    const pageHeight = doc.internal.pageSize.getHeight();
     doc.line(margin, pageHeight - margin - 4, pageWidth - margin, pageHeight - margin - 4);
 
 
@@ -416,7 +469,7 @@ export default function LoanDetailsPage() {
                           Collect EMI
                         </Button>
                       ) : (
-                        <Button variant="secondary" size="sm" onClick={() => generateEmiReceiptPDF(emi)}>
+                        <Button variant="secondary" size="sm" onClick={() => generateEmiReceiptPDF(emi)} disabled={!emi.paymentDate}>
                             <Download className="mr-2 h-4 w-4" />
                             Receipt
                         </Button>
@@ -432,3 +485,5 @@ export default function LoanDetailsPage() {
     </div>
   );
 }
+
+    
