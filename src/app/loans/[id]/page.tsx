@@ -109,7 +109,7 @@ async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[
         ["Customer Name:", customer.name],
         ["Customer ID:", customer.id],
         ["Loan ID:", loan.id],
-        ["Loan Amount:", `₹${formatCurrency(loan.amount)}`],
+        ["Loan Amount:", `\u20B9${formatCurrency(loan.amount)}`],
         ["Interest Rate:", `${loan.interestRate}% p.a.`],
         ["Tenure:", `${loan.tenure} months`],
         ["Disbursal Date:", format(new Date(loan.disbursalDate), 'dd-MM-yyyy')],
@@ -136,10 +136,10 @@ async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[
   const tableData = emiList.map((emi, i) => [
     `${i + 1}`,
     format(new Date(emi.dueDate), 'dd-MM-yyyy'),
-    `₹${formatCurrency(emi.amount)}`,
-    `₹${formatCurrency(emi.principal)}`,
-    `₹${formatCurrency(emi.interest)}`,
-    `₹${formatCurrency(emi.balance)}`,
+    `\u20B9${formatCurrency(emi.amount)}`,
+    `\u20B9${formatCurrency(emi.principal)}`,
+    `\u20B9${formatCurrency(emi.interest)}`,
+    `\u20B9${formatCurrency(emi.balance)}`,
     emi.status,
   ]);
 
@@ -233,7 +233,7 @@ export default function LoanDetailsPage() {
         if (collectedEmi) {
             setWhatsappPreview({
                 open: true,
-                message: `Dear ${loan.customerName}, your EMI payment of ₹${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
+                message: `Dear ${loan.customerName}, your EMI payment of \u20B9${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
             });
         }
     } catch (error) {
@@ -455,13 +455,13 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
         startY: detailsY + 30,
         head: [['Description', 'Amount']],
         body: [
-            ['EMI Amount Received', `₹ ${emi.amount.toLocaleString()}`],
-            ['  - Principal Component', `₹ ${emi.principal.toLocaleString()}`],
-            ['  - Interest Component', `₹ ${emi.interest.toLocaleString()}`],
+            ['EMI Amount Received', `\u20B9 ${emi.amount.toLocaleString()}`],
+            ['  - Principal Component', `\u20B9 ${emi.principal.toLocaleString()}`],
+            ['  - Interest Component', `\u20B9 ${emi.interest.toLocaleString()}`],
         ],
         foot: [[
             { content: 'Total Paid', styles: { fontStyle: 'bold', halign: 'right' } },
-            { content: `₹ ${emi.amount.toLocaleString()}`, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], textColor: 20 } }
+            { content: `\u20B9 ${emi.amount.toLocaleString()}`, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], textColor: 20 } }
         ]],
         theme: 'striped',
         headStyles: { fillColor: [46, 71, 101] },
@@ -478,7 +478,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
     doc.setFont('helvetica', 'bold');
     doc.text(`Outstanding Balance:`, margin, finalY);
     doc.setFont('helvetica', 'normal');
-    doc.text(`₹ ${emi.balance.toLocaleString()}`, margin + 42, finalY);
+    doc.text(`\u20B9 ${emi.balance.toLocaleString()}`, margin + 42, finalY);
 
     // Footer
     const footerY = pageHeight - 20;
@@ -545,7 +545,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
         </CardHeader>
         <CardContent>
             <div className="grid md:grid-cols-5 gap-4 text-sm">
-                <div><span className="font-medium text-muted-foreground">Principal:</span> <span className="font-bold">₹{loan.amount.toLocaleString()}</span></div>
+                <div><span className="font-medium text-muted-foreground">Principal:</span> <span className="font-bold">\u20B9{loan.amount.toLocaleString()}</span></div>
                 <div><span className="font-medium text-muted-foreground">Interest Rate:</span> <span className="font-bold">{loan.interestRate}% p.a.</span></div>
                 <div><span className="font-medium text-muted-foreground">Tenure:</span> <span className="font-bold">{loan.tenure} months</span></div>
                  <div><span className="font-medium text-muted-foreground">Processing Fee:</span> <span className="font-bold">{loan.processingFee}%</span></div>
@@ -574,9 +574,9 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
               {loan.emis.map((emi) => (
                 <TableRow key={emi.id}>
                   <TableCell>{format(new Date(emi.dueDate), 'dd-MM-yyyy')}</TableCell>
-                  <TableCell>₹{emi.amount.toLocaleString()}</TableCell>
-                  <TableCell>₹{emi.principal.toLocaleString()}</TableCell>
-                  <TableCell>₹{emi.interest.toLocaleString()}</TableCell>
+                  <TableCell>\u20B9{emi.amount.toLocaleString()}</TableCell>
+                  <TableCell>\u20B9{emi.principal.toLocaleString()}</TableCell>
+                  <TableCell>\u20B9{emi.interest.toLocaleString()}</TableCell>
                   <TableCell>
                     <Badge variant={emi.status === 'Paid' ? 'default' : 'secondary'} className={emi.status === 'Paid' ? 'bg-green-600' : 'bg-yellow-500'}>
                         {emi.status === 'Paid' ? <CheckCircle className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1"/>}
