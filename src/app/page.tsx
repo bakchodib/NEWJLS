@@ -108,6 +108,11 @@ export default function LandingPage() {
       <main className="flex-1">
         {/* Part 1: Hero Section */}
         <section className="relative w-full h-[calc(100vh-4rem)] flex items-center justify-center">
+            <Aurora
+              colorStops={["#A386F5", "#C4ADFF", "#3366CC"]}
+              blend={0.5}
+              amplitude={0.5}
+            />
             <div className="container mx-auto px-4 grid md:grid-cols-2 gap-8 items-center">
                 <div className="z-10 text-left">
                      <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
@@ -272,5 +277,7 @@ export default function LandingPage() {
     </div>
   );
 }
+
+    
 
     
