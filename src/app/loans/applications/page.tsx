@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BadgeCheck, XCircle, Hourglass, ChevronsRight, Pencil, Trash2, CalendarIcon } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -227,7 +227,7 @@ export default function LoanApplicationsPage() {
                     Select the date of disbursal for loan: {disburseLoanId}. The EMI schedule will be generated based on this date.
                 </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col items-center gap-4">
+            <div className="py-4 flex justify-center">
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button
