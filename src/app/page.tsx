@@ -114,27 +114,21 @@ export default function LandingPage() {
                           <h3 className="text-xl font-bold">
                             <SplitText text="Micro Loans" splitType='chars' delay={50} />
                           </h3>
-                          <p className="mt-2 text-sm text-card-foreground/80">
-                            <SplitText text="Fast disbursal of small loans to empower communities." splitType='words' delay={30} />
-                          </p>
+                           <SplitText text="Fast disbursal of small loans to empower communities." splitType='words' delay={30} className="mt-2 text-sm text-card-foreground/80" />
                         </Card>
                         <Card customClass="bg-card text-card-foreground p-6 flex flex-col justify-center items-center text-center">
                           <Wallet className="h-12 w-12 mb-4 text-primary"/>
                           <h3 className="text-xl font-bold">
                              <SplitText text="Savings" splitType='chars' delay={50} />
                           </h3>
-                           <p className="mt-2 text-sm text-card-foreground/80">
-                            <SplitText text="Encourage financial discipline with secure savings options." splitType='words' delay={30} />
-                           </p>
+                           <SplitText text="Encourage financial discipline with secure savings options." splitType='words' delay={30} className="mt-2 text-sm text-card-foreground/80" />
                         </Card>
                         <Card customClass="bg-card text-card-foreground p-6 flex flex-col justify-center items-center text-center">
                           <ShieldCheck className="h-12 w-12 mb-4 text-primary"/>
                           <h3 className="text-xl font-bold">
                             <SplitText text="Insurance" splitType='chars' delay={50} />
                           </h3>
-                           <p className="mt-2 text-sm text-card-foreground/80">
-                            <SplitText text="Provide a safety net with micro-insurance for health and life." splitType='words' delay={30} />
-                           </p>
+                           <SplitText text="Provide a safety net with micro-insurance for health and life." splitType='words' delay={30} className="mt-2 text-sm text-card-foreground/80" />
                         </Card>
                     </CardSwap>
                 </div>
