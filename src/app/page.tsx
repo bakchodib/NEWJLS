@@ -8,10 +8,10 @@ import { useAuth } from '@/contexts/auth-context';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card as ShadCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import CardSwap, { Card } from '@/components/ui/CardSwap';
 import '@/components/ui/CardSwap.css';
 import SplitText from '@/components/ui/SplitText';
+import ProfileCard from '@/components/ui/ProfileCard';
 
 
 export default function LandingPage() {
@@ -58,15 +58,24 @@ export default function LandingPage() {
   const testimonials = [
       {
           name: 'Ramesh Kumar',
-          role: 'Finance Manager',
+          title: 'Finance Manager',
           quote: 'This platform has revolutionized how we manage our loan portfolio. The EMI tracking is a lifesaver!',
-          avatar: 'RK'
+          avatarUrl: 'https://placehold.co/400x600.png',
+          handle: 'rameshk',
       },
       {
           name: 'Sunita Sharma',
-          role: 'Field Agent',
+          title: 'Field Agent',
           quote: 'Collecting EMIs has never been easier. I can see all my pending collections for the month in one place.',
-          avatar: 'SS'
+          avatarUrl: 'https://placehold.co/400x600.png',
+          handle: 'sunitasharma',
+      },
+      {
+          name: 'Anil Singh',
+          title: 'Small Business Owner',
+          quote: 'Getting a loan was quick and the process was very transparent. Highly recommend their services.',
+          avatarUrl: 'https://placehold.co/400x600.png',
+          handle: 'anilsingh'
       }
   ]
 
@@ -196,22 +205,21 @@ export default function LandingPage() {
                 <div className="text-center mb-12">
                     <h2 className="text-3xl md:text-4xl font-bold">Trusted by Finance Professionals</h2>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                     {testimonials.map((testimonial, index) => (
-                        <ShadCard key={index} className="bg-card">
-                            <CardContent className="pt-6">
-                                <p className="italic text-muted-foreground">"{testimonial.quote}"</p>
-                                <div className="flex items-center mt-4">
-                                    <Avatar className="h-12 w-12 mr-4">
-                                        <AvatarFallback>{testimonial.avatar}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-semibold">{testimonial.name}</p>
-                                        <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </ShadCard>
+                         <div key={index} className="flex justify-center">
+                            <ProfileCard
+                                name={testimonial.name}
+                                title={testimonial.title}
+                                handle={testimonial.handle}
+                                avatarUrl={testimonial.avatarUrl}
+                                status="Online"
+                                contactText="View Profile"
+                                onContactClick={() => {}}
+                                showUserInfo={false}
+                                enableTilt={true}
+                            />
+                         </div>
                     ))}
                 </div>
             </div>
