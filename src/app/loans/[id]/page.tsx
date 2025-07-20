@@ -97,32 +97,41 @@ export default function LoanDetailsPage() {
 
   const generateLoanAgreementPDF = async () => {
     if(!loan || !customer) return;
+    
     const doc = new jsPDF();
+    
+    const addContentAndSave = (photoDataUrl: string | null) => {
+        if(photoDataUrl) {
+           doc.addImage(photoDataUrl, 'PNG', 150, 15, 45, 45);
+        }
+        addAgreementContent(doc);
+        doc.save(`loan_agreement_${loan.id}.pdf`);
+    };
 
-    // Add customer photo
-    if (customer.customerPhoto) {
+    if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
         try {
-            const response = await fetch(customer.customerPhoto);
+            // Using a CORS proxy for external images to avoid tainted canvas
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+            const response = await fetch(proxyUrl + customer.customerPhoto);
+            if (!response.ok) throw new Error('CORS proxy failed');
             const blob = await response.blob();
             const reader = new FileReader();
             reader.readAsDataURL(blob);
             reader.onloadend = () => {
-                const base64data = reader.result as string;
-                doc.addImage(base64data, 'PNG', 150, 15, 45, 45);
-                
-                // Add content after image is loaded
-                addAgreementContent(doc);
-                doc.save(`loan_agreement_${loan.id}.pdf`);
+                addContentAndSave(reader.result as string);
             };
+            reader.onerror = (error) => {
+                console.error("Error reading blob:", error);
+                addContentAndSave(null);
+            }
         } catch (error) {
-            console.error("Error fetching image for PDF:", error);
-            // Continue without image if fetch fails
-            addAgreementContent(doc);
-            doc.save(`loan_agreement_${loan.id}.pdf`);
+            console.error("Error fetching or processing image for PDF:", error);
+            addContentAndSave(null);
         }
+    } else if(customer.customerPhoto) { // Handle base64 urls directly
+        addContentAndSave(customer.customerPhoto);
     } else {
-        addAgreementContent(doc);
-        doc.save(`loan_agreement_${loan.id}.pdf`);
+        addContentAndSave(null);
     }
   }
 
@@ -130,34 +139,47 @@ export default function LoanDetailsPage() {
      if(!loan || !customer) return;
 
     doc.setFontSize(22);
-    doc.text('Loan Agreement', 14, 22);
-    doc.setFontSize(12);
+    doc.text('Loan Agreement', doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+    doc.setFontSize(10);
     doc.text(`Loan ID: ${loan.id}`, 14, 32);
-    
-    doc.line(14, 35, 196, 35); // Horizontal line
+    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, 14, 38);
 
-    doc.setFontSize(14);
-    doc.text('Customer Details', 14, 45);
+    doc.line(14, 42, 196, 42);
+
+    let finalY = 50;
+
+    // Parties
+    doc.setFontSize(12);
+    doc.text('1. Parties to the Agreement', 14, finalY);
     doc.setFontSize(10);
+    doc.text("This Loan Agreement is made between:", 14, finalY + 6);
+
     autoTable(doc, {
-        startY: 50,
+        startY: finalY + 10,
         theme: 'plain',
+        tableWidth: 'auto',
+        styles: { fontSize: 9, cellPadding: 1 },
         body: [
-            ['Name:', customer.name],
-            ['Customer ID:', customer.id],
-            ['Address:', customer.address],
-            ['Phone:', customer.phone],
-        ]
+            ['Lender:', 'FinanceFlow Inc.'],
+            ['Borrower:', ''],
+            ['  Name:', customer.name],
+            ['  Customer ID:', customer.id],
+            ['  Address:', customer.address],
+            ['  Phone:', customer.phone],
+            ['Guarantor:', ''],
+            ['  Name:', customer.guarantorName],
+            ['  Phone:', customer.guarantorPhone],
+        ],
+        columnStyles: { 0: { fontStyle: 'bold' } }
     });
+    finalY = (doc as any).lastAutoTable.finalY;
 
-    const finalY = (doc as any).lastAutoTable.finalY;
-
-    doc.setFontSize(14);
-    doc.text('Loan Terms', 14, finalY + 15);
-    doc.setFontSize(10);
+    // Loan Terms
+    doc.setFontSize(12);
+    doc.text('2. Loan Terms', 14, finalY + 10);
     const netDisbursed = loan.amount - (loan.amount * (loan.processingFee / 100));
     autoTable(doc, {
-        startY: finalY + 20,
+        startY: finalY + 14,
         head: [['Term', 'Details']],
         body: [
             ['Principal Amount', `₹${loan.amount.toLocaleString()}`],
@@ -166,8 +188,29 @@ export default function LoanDetailsPage() {
             ['Processing Fee', `${loan.processingFee}% (₹${(loan.amount * (loan.processingFee / 100)).toLocaleString()})`],
             ['Net Disbursed Amount', `₹${netDisbursed.toLocaleString()}`],
             ['Disbursal Date', new Date(loan.disbursalDate).toLocaleDateString()],
-        ]
+        ],
+         headStyles: { fillColor: [46, 71, 101] }
     });
+    finalY = (doc as any).lastAutoTable.finalY;
+    
+    // Terms and Conditions
+    doc.setFontSize(12);
+    doc.text('3. Terms and Conditions', 14, finalY + 10);
+    doc.setFontSize(9);
+    const terms = `The Borrower agrees to repay the loan in ${loan.tenure} equated monthly installments (EMIs) as per the schedule provided. Failure to pay any EMI on the due date shall attract a late payment penalty. The Guarantor assures the full repayment of the loan in case of default by the Borrower. This agreement is governed by the laws of India.`;
+    const splitTerms = doc.splitTextToSize(terms, 180);
+    doc.text(splitTerms, 14, finalY + 16);
+    finalY = finalY + 16 + (splitTerms.length * 5);
+
+    // Signatures
+    doc.setFontSize(12);
+    doc.text('4. Signatures', 14, finalY + 15);
+    finalY += 35;
+    doc.line(14, finalY, 74, finalY);
+    doc.text('Borrower Signature', 14, finalY + 5);
+    doc.line(136, finalY, 196, finalY);
+    doc.text('Guarantor Signature', 136, finalY + 5);
+
   }
 
 
@@ -251,3 +294,5 @@ export default function LoanDetailsPage() {
     </div>
   );
 }
+
+    
