@@ -32,6 +32,7 @@ const AdminDashboard = ({ stats }: { stats: any }) => (
         <p className="text-xs text-muted-foreground">
           Total Disbursed: ₹{stats.totalDisbursed.toLocaleString()}
         </p>
+         <Link href="/loans" className="text-xs text-muted-foreground underline">View all loans</Link>
       </CardContent>
     </Card>
     <Card>
