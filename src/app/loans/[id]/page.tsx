@@ -71,16 +71,47 @@ export default function LoanDetailsPage() {
     });
   };
 
-  const generateLoanCardPDF = () => {
+  const imageToDataUrl = async (url: string): Promise<string | null> => {
+    try {
+        // Using a CORS proxy for external images to avoid tainted canvas
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const response = await fetch(proxyUrl + url);
+        if (!response.ok) throw new Error(`CORS proxy failed for ${url}`);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        return new Promise((resolve, reject) => {
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => {
+                resolve(reader.result as string);
+            };
+            reader.onerror = (error) => {
+                console.error("Error reading blob:", error);
+                reject(null);
+            }
+        });
+    } catch (error) {
+        console.error(`Error fetching or processing image for PDF from ${url}:`, error);
+        return null;
+    }
+  }
+
+  const generateLoanCardPDF = async () => {
     if(!loan) return;
     const doc = new jsPDF();
+    const logoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
+    const logoDataUrl = await imageToDataUrl(logoUrl);
+
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, 'PNG', 14, 15, 10, 10);
+    }
     doc.setFontSize(18);
-    doc.text(`Loan Card - ${loan.id}`, 14, 22);
+    doc.text(`FinanceFlow Inc. - Loan Card`, 28, 22);
     doc.setFontSize(11);
-    doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 32);
+    doc.text(`Loan ID: ${loan.id}`, 14, 32);
+    doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 38);
     
     autoTable(doc, {
-        startY: 40,
+        startY: 45,
         head: [['Due Date', 'Amount', 'Principal', 'Interest', 'Balance', 'Status']],
         body: loan.emis.map(emi => [
             new Date(emi.dueDate).toLocaleDateString(),
@@ -100,39 +131,21 @@ export default function LoanDetailsPage() {
     
     const doc = new jsPDF();
     
-    const addContentAndSave = (photoDataUrl: string | null) => {
-        addAgreementContent(doc, photoDataUrl);
-        doc.save(`loan_agreement_${loan.id}.pdf`);
-    };
+    const logoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
+    const logoDataUrl = await imageToDataUrl(logoUrl);
 
+    let customerPhotoDataUrl: string | null = null;
     if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
-        try {
-            // Using a CORS proxy for external images to avoid tainted canvas
-            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-            const response = await fetch(proxyUrl + customer.customerPhoto);
-            if (!response.ok) throw new Error('CORS proxy failed');
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = () => {
-                addContentAndSave(reader.result as string);
-            };
-            reader.onerror = (error) => {
-                console.error("Error reading blob:", error);
-                addContentAndSave(null);
-            }
-        } catch (error) {
-            console.error("Error fetching or processing image for PDF:", error);
-            addContentAndSave(null);
-        }
+        customerPhotoDataUrl = await imageToDataUrl(customer.customerPhoto);
     } else if(customer.customerPhoto) { // Handle base64 urls directly
-        addContentAndSave(customer.customerPhoto);
-    } else {
-        addContentAndSave(null);
+        customerPhotoDataUrl = customer.customerPhoto;
     }
+    
+    addAgreementContent(doc, customerPhotoDataUrl, logoDataUrl);
+    doc.save(`loan_agreement_${loan.id}.pdf`);
   }
 
-  const addAgreementContent = (doc: jsPDF, photoDataUrl: string | null) => {
+  const addAgreementContent = (doc: jsPDF, photoDataUrl: string | null, logoDataUrl: string | null) => {
     if(!loan || !customer) return;
 
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -140,9 +153,12 @@ export default function LoanDetailsPage() {
     const margin = 14;
 
     const addHeader = (page: number) => {
+        if(logoDataUrl){
+            doc.addImage(logoDataUrl, 'PNG', margin, margin-4, 10, 10);
+        }
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('FinanceFlow Inc. - Loan Agreement', margin, margin);
+        doc.text('FinanceFlow Inc. - Loan Agreement', margin + 12, margin);
         doc.line(margin, margin + 2, pageWidth - margin, margin + 2);
     };
 

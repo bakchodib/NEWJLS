@@ -83,15 +83,43 @@ export default function EmiCollectionPage() {
     setSelectedDate(current => setYear(current, parseInt(yearValue, 10)));
   }
 
-  const generateReportPDF = () => {
+  const imageToDataUrl = async (url: string): Promise<string | null> => {
+    try {
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const response = await fetch(proxyUrl + url);
+        if (!response.ok) throw new Error(`CORS proxy failed for ${url}`);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        return new Promise((resolve, reject) => {
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = (error) => {
+                console.error("Error reading blob:", error);
+                reject(null);
+            }
+        });
+    } catch (error) {
+        console.error(`Error fetching or processing image for PDF from ${url}:`, error);
+        return null;
+    }
+  }
+
+  const generateReportPDF = async () => {
     const doc = new jsPDF();
     const monthName = format(selectedDate, 'MMMM yyyy');
-    
+    const logoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
+    const logoDataUrl = await imageToDataUrl(logoUrl);
+
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, 'PNG', 14, 15, 10, 10);
+    }
     doc.setFontSize(18);
-    doc.text(`EMI Due Report - ${monthName}`, 14, 22);
-    
+    doc.text(`FinanceFlow Inc.`, 28, 22);
+    doc.setFontSize(12)
+    doc.text(`EMI Due Report - ${monthName}`, 14, 32);
+
     autoTable(doc, {
-        startY: 30,
+        startY: 40,
         head: [['Customer', 'Phone', 'Guarantor', 'Guarantor Phone', 'EMI Amount']],
         body: dueEmis.map(emi => [
             emi.customer.name,
