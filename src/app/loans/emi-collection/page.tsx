@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Download, Wallet } from 'lucide-react';
+import { Download, Wallet, MessageCircle } from 'lucide-react';
 import { format, getYear, getMonth, setYear, setMonth } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -21,12 +21,30 @@ interface DueEmi extends EMI {
   customer: Customer;
 }
 
+function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpenChange: (open: boolean) => void, message: string }) {
+    if (!open) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => onOpenChange(false)}>
+            <div className="bg-white dark:bg-card rounded-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+                <h3 className="font-bold text-lg mb-2 flex items-center gap-2"><MessageCircle className="text-green-500"/>WhatsApp Preview</h3>
+                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md text-sm">
+                    <p className="font-bold">FinanceFlow Bot</p>
+                    <p>{message}</p>
+                </div>
+                <Button className="w-full mt-4" onClick={() => onOpenChange(false)}>Close</Button>
+            </div>
+        </div>
+    );
+}
+
 export default function EmiCollectionPage() {
   const [dueEmis, setDueEmis] = useState<DueEmi[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { role, loading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const [whatsappPreview, setWhatsappPreview] = useState({ open: false, message: '' });
 
   const years = useMemo(() => {
     const allLoans = getLoans();
@@ -89,14 +107,18 @@ export default function EmiCollectionPage() {
     if (!loan) return;
 
     let collectedEmi: EMI | undefined;
-    const updatedEmis = loan.emis.map(emi => {
+    const emiIndex = loan.emis.findIndex(emi => emi.id === emiId);
+
+    if (emiIndex === -1) return;
+
+    const updatedEmis = loan.emis.map((emi, index) => {
         if (emi.id === emiId) {
             collectedEmi = { 
                 ...emi, 
                 status: 'Paid' as const, 
                 paymentDate: new Date().toISOString(),
                 paymentMethod: 'Cash',
-                receiptNumber: `RCPT-${Date.now()}`
+                receiptNumber: `RCPT-${loan.id}-${index + 1}`
             };
             return collectedEmi;
         }
@@ -113,6 +135,13 @@ export default function EmiCollectionPage() {
         title: 'EMI Collected!',
         description: `Successfully collected ₹${collectedEmi?.amount} from ${loan.customerName}.`,
     });
+
+     if (collectedEmi) {
+        setWhatsappPreview({
+            open: true,
+            message: `Dear ${loan.customerName}, your EMI payment of ₹${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
+        });
+    }
   }
 
 
@@ -153,6 +182,11 @@ export default function EmiCollectionPage() {
 
   return (
     <div className="flex flex-col gap-4">
+       <WhatsappPreview 
+        open={whatsappPreview.open} 
+        onOpenChange={(open) => setWhatsappPreview({ open, message: '' })} 
+        message={whatsappPreview.message}
+      />
       <Card>
         <CardHeader>
             <div className="flex justify-between items-start flex-wrap gap-4">
@@ -232,3 +266,5 @@ export default function EmiCollectionPage() {
     </div>
   );
 }
+
+    

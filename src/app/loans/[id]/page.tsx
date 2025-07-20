@@ -56,10 +56,12 @@ export default function LoanDetailsPage() {
   }, [id]);
 
    const imageToDataUri = async (url: string): Promise<string | null> => {
-        // Since ImgBB might have CORS issues, we can try to use a proxy, but for this app, we'll assume direct fetch works.
-        // A more robust solution might involve a server-side endpoint to fetch the image.
+        // A server-side proxy would be more robust for CORS issues.
+        // For this demo, we'll try a public CORS proxy.
+        // Note: Public proxies are not suitable for production.
         try {
-            const response = await fetch(`https://cors-anywhere.herokuapp.com/${url}`);
+            const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+            if (!response.ok) throw new Error('Failed to fetch image via proxy');
             const blob = await response.blob();
             const reader = new FileReader();
             return new Promise((resolve, reject) => {
@@ -69,12 +71,26 @@ export default function LoanDetailsPage() {
             });
         } catch (error) {
             console.error('Failed to fetch or convert image:', error);
-            toast({
-                title: 'Image Load Failed',
-                description: 'Could not load customer photo for the PDF. The PDF will be generated without it.',
-                variant: 'destructive'
-            });
-            return null;
+            // Fallback to trying direct fetch if proxy fails
+            try {
+                 const directResponse = await fetch(url);
+                 if (!directResponse.ok) throw new Error('Direct fetch failed');
+                 const blob = await directResponse.blob();
+                 const reader = new FileReader();
+                 return new Promise((resolve, reject) => {
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch (directError) {
+                 console.error('Direct image fetch failed:', directError);
+                 toast({
+                    title: 'Image Load Failed',
+                    description: 'Could not load customer photo for the PDF. The PDF will be generated without it.',
+                    variant: 'destructive'
+                });
+                return null;
+            }
         }
     };
 
@@ -83,14 +99,18 @@ export default function LoanDetailsPage() {
     if (!loan) return;
     
     let collectedEmi: EMI | undefined;
-    const updatedEmis = loan.emis.map(emi => {
+    const emiIndex = loan.emis.findIndex(emi => emi.id === emiId);
+    
+    if (emiIndex === -1) return;
+
+    const updatedEmis = loan.emis.map((emi, index) => {
         if (emi.id === emiId) {
             collectedEmi = { 
                 ...emi, 
                 status: 'Paid' as const, 
                 paymentDate: new Date().toISOString(),
-                paymentMethod: 'Cash', // Assuming cash collection for now
-                receiptNumber: `RCPT-${Date.now()}`
+                paymentMethod: 'Cash',
+                receiptNumber: `RCPT-${loan.id}-${index + 1}`
             };
             return collectedEmi;
         }
@@ -100,18 +120,18 @@ export default function LoanDetailsPage() {
     const updatedLoan = { ...loan, emis: updatedEmis };
     
     const allLoans = getLoans();
-    const loanIndex = allLoans.findIndex(l => l.id === loan.id);
-    if(loanIndex !== -1) {
+    const loanIndexInStorage = allLoans.findIndex(l => l.id === loan.id);
+    if(loanIndexInStorage !== -1) {
         const remainingPending = updatedLoan.emis.filter(e => e.status === 'Pending').length;
         if (remainingPending === 0) {
             updatedLoan.status = 'Closed';
         }
-        allLoans[loanIndex] = updatedLoan;
+        allLoans[loanIndexInStorage] = updatedLoan;
         updateLoan(updatedLoan); // This updates the loan in storage.
         setLoan(updatedLoan); // This updates the local state to re-render the page.
     }
     
-    toast({ title: 'Success', description: `EMI ${emiId} marked as paid.` });
+    toast({ title: 'Success', description: `EMI ${emiIndex + 1} marked as paid.` });
     
     if (collectedEmi) {
         setWhatsappPreview({
@@ -173,7 +193,7 @@ export default function LoanDetailsPage() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14;
 
-    const addHeader = (pageNumber: number) => {
+    const addHeader = () => {
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text('FinanceFlow Inc.', margin, margin + 2);
@@ -188,7 +208,7 @@ export default function LoanDetailsPage() {
     };
 
     // ===== PAGE 1 =====
-    addHeader(1);
+    addHeader();
 
     if (customerPhotoDataUri) {
         doc.addImage(customerPhotoDataUri, 'JPEG', pageWidth - margin - 30, 25, 30, 30);
@@ -254,7 +274,7 @@ export default function LoanDetailsPage() {
 
     doc.addPage();
     // ===== PAGE 2 =====
-    addHeader(2);
+    addHeader();
     let page2Y = 30;
 
     // Terms and Conditions
@@ -270,7 +290,7 @@ export default function LoanDetailsPage() {
         if (page2Y + (splitText.length * 4) + 4 > pageHeight - 40) { // check if it fits
             addFooter(doc.internal.pages.length);
             doc.addPage();
-            addHeader(doc.internal.pages.length);
+            addHeader();
             page2Y = 30;
         }
         doc.text(splitText, margin + 5, page2Y);
@@ -292,7 +312,7 @@ export default function LoanDetailsPage() {
     if (page2Y > pageHeight - 80) { // Check space for signatures
         addFooter(doc.internal.pages.length);
         doc.addPage();
-        addHeader(doc.internal.pages.length);
+        addHeader();
         page2Y = 30;
     }
     doc.setFontSize(12);
@@ -502,5 +522,7 @@ export default function LoanDetailsPage() {
     </div>
   );
 }
+
+    
 
     
