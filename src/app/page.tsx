@@ -14,6 +14,7 @@ import Aurora from '@/components/ui/Aurora';
 import StarBorder from '@/components/ui/StarBorder';
 import TestimonialCard from '@/components/ui/TestimonialCard';
 import '@/components/ui/TestimonialMarquee.css';
+import AnimatedCounter from '@/components/ui/AnimatedCounter';
 
 
 export default function LandingPage() {
@@ -189,31 +190,32 @@ export default function LandingPage() {
             </div>
         </section>
 
-        {/* Part 2: How It Works Section */}
-        <section id="how-it-works" className="py-20 bg-muted/20">
+        {/* Part 2: Stats Section (Replaces "How It Works") */}
+        <section id="stats" className="py-20 bg-muted/20">
              <div className="container mx-auto px-4">
-                <div className="text-center mb-12">
-                    <h2 className="text-3xl md:text-4xl font-bold">Get Started in 3 Easy Steps</h2>
-                    <p className="text-lg text-muted-foreground mt-2">A seamless workflow from start to finish.</p>
-                </div>
-                <div className="relative">
-                    {/* The line is removed to not clash with the aurora background */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-16">
-                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20">
-                            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground font-bold text-2xl border-4 border-background mb-4">1</div>
-                            <h3 className="text-xl font-semibold mb-2">Register Customers</h3>
-                            <p className="text-muted-foreground">Quickly add new customers with all necessary KYC documents and details.</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="p-8 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20 flex flex-col justify-center items-start">
+                        <div className="text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">
+                           <AnimatedCounter to={100} suffix="%" />
                         </div>
-                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20">
-                           <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground font-bold text-2xl border-4 border-background mb-4">2</div>
-                            <h3 className="text-xl font-semibold mb-2">Disburse Loans</h3>
-                            <p className="text-muted-foreground">Create and manage loan applications, get approvals, and disburse funds.</p>
-                        </div>
-                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20">
-                            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground font-bold text-2xl border-4 border-background mb-4">3</div>
-                            <h3 className="text-xl font-semibold mb-2">Collect EMIs</h3>
-                            <p className="text-muted-foreground">Follow a clear schedule to collect monthly payments and track your progress.</p>
-                        </div>
+                        <h3 className="text-2xl font-semibold mt-2">Streamlined Operations</h3>
+                        <p className="text-muted-foreground mt-1">Fully digital workflow for maximum efficiency.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <div className="p-8 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20 flex flex-col justify-center">
+                            <div className="text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">
+                               <AnimatedCounter to={3} />
+                            </div>
+                            <h3 className="text-xl font-semibold mt-2">User Roles</h3>
+                            <p className="text-muted-foreground mt-1">Admin, Agent, and Customer access levels.</p>
+                       </div>
+                       <div className="p-8 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20 flex flex-col justify-center">
+                            <div className="text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">
+                               <AnimatedCounter to={500} suffix="+" />
+                            </div>
+                            <h3 className="text-xl font-semibold mt-2">Happy Customers</h3>
+                            <p className="text-muted-foreground mt-1">Join our growing community.</p>
+                       </div>
                     </div>
                 </div>
             </div>
