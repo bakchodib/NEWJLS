@@ -204,10 +204,10 @@ export default function LandingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                        <div className="p-8 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20 flex flex-col justify-center">
                             <div className="text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">
-                               <AnimatedCounter to={3} />
+                               <AnimatedCounter to={7} />
                             </div>
-                            <h3 className="text-xl font-semibold mt-2">User Roles</h3>
-                            <p className="text-muted-foreground mt-1">Admin, Agent, and Customer access levels.</p>
+                            <h3 className="text-xl font-semibold mt-2">Types of Loan</h3>
+                            <p className="text-muted-foreground mt-1">Personal Loans, Home Loans, Auto Loans, Business Loans, Gold Loans, etc.</p>
                        </div>
                        <div className="p-8 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20 flex flex-col justify-center">
                             <div className="text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">
