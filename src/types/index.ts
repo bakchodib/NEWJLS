@@ -5,6 +5,7 @@ export interface Customer {
   name: string;
   phone: string;
   address: string;
+  customerPhoto: string; // URL or base64 string
   kycImage: string; // URL or base64 string
   guarantorName: string;
   guarantorPhone: string;

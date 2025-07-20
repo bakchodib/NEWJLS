@@ -100,9 +100,9 @@ export default function LoanDetailsPage() {
     const doc = new jsPDF();
 
     // Add customer photo
-    if (customer.kycImage) {
+    if (customer.customerPhoto) {
         try {
-            const response = await fetch(customer.kycImage);
+            const response = await fetch(customer.customerPhoto);
             const blob = await response.blob();
             const reader = new FileReader();
             reader.readAsDataURL(blob);

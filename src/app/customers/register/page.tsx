@@ -18,7 +18,8 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   phone: z.string().regex(/^\d{10}$/, { message: 'Phone number must be 10 digits.' }),
   address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
-  kycImage: z.any().refine(files => files?.length > 0, 'KYC image is required.'),
+  customerPhoto: z.any().refine(files => files?.length > 0, 'Customer photo is required.'),
+  kycImage: z.any().refine(files => files?.length > 0, 'KYC document is required.'),
   guarantorName: z.string().min(2, { message: 'Guarantor name must be at least 2 characters.' }),
   guarantorPhone: z.string().regex(/^\d{10}$/, { message: 'Guarantor phone must be 10 digits.' }),
 });
@@ -34,6 +35,7 @@ export default function RegisterCustomerPage() {
       name: '',
       phone: '',
       address: '',
+      customerPhoto: undefined,
       kycImage: undefined,
       guarantorName: '',
       guarantorPhone: '',
@@ -53,6 +55,7 @@ export default function RegisterCustomerPage() {
       name: values.name,
       phone: values.phone,
       address: values.address,
+      customerPhoto: 'https://placehold.co/400x400.png',
       kycImage: 'https://placehold.co/600x400.png',
       guarantorName: values.guarantorName,
       guarantorPhone: values.guarantorPhone,
@@ -120,6 +123,20 @@ export default function RegisterCustomerPage() {
                     </FormItem>
                   )}
                 />
+                 <FormField
+                  control={form.control}
+                  name="customerPhoto"
+                  render={({ field: { onChange, value, ...rest } }) => (
+                      <FormItem>
+                          <FormLabel>Customer Photo</FormLabel>
+                          <FormControl>
+                              <Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} />
+                          </FormControl>
+                          <FormDescription>Upload a clear photo of the customer.</FormDescription>
+                          <FormMessage />
+                      </FormItem>
+                  )}
+                  />
                 <FormField
                   control={form.control}
                   name="kycImage"
