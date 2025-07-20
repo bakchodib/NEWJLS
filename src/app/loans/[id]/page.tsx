@@ -42,7 +42,7 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
             <div className="bg-white dark:bg-card rounded-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
                 <h3 className="font-bold text-lg mb-2 flex items-center gap-2"><MessageCircle className="text-green-500"/>WhatsApp Preview</h3>
                 <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md text-sm">
-                    <p className="font-bold">FinanceFlow Bot</p>
+                    <p className="font-bold">JLS FINACE LTD Bot</p>
                     <p>{message}</p>
                 </div>
                 <Button className="w-full mt-4" onClick={() => onOpenChange(false)}>Close</Button>
@@ -98,7 +98,7 @@ async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[
   // Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("JLS FINANCE LTD", 105, 15, { align: "center" });
+  doc.text("JLS FINACE LTD", 105, 15, { align: "center" });
   doc.setFontSize(13);
   doc.text("Loan Card", 105, 23, { align: "center" });
 
@@ -308,7 +308,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   // Page 1 Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("JLS FINANCE LTD", 105, 15, { align: "center" });
+  doc.text("JLS FINACE LTD", 105, 15, { align: "center" });
   doc.setFontSize(13);
   doc.text("Loan Agreement Document", 105, 23, { align: "center" });
   doc.setFontSize(10);
@@ -480,7 +480,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
     doc.text('Payment Receipt', pageWidth / 2, margin + 10, { align: 'center' });
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('FinanceFlow Inc.', pageWidth / 2, margin + 16, { align: 'center' });
+    doc.text('JLS FINACE LTD', pageWidth / 2, margin + 16, { align: 'center' });
     
     // Receipt Details Table
     autoTable(doc, {

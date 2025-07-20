@@ -19,7 +19,7 @@ const getTitleFromPath = (path: string) => {
   if (path.includes('/loans')) return 'Loans';
   if (path.includes('/dashboard')) return 'Dashboard';
   if (path.includes('/users')) return 'User Management';
-  return 'FinanceFlow';
+  return 'JLS FINACE LTD';
 };
 
 export function Header({children}: {children?: React.ReactNode}) {

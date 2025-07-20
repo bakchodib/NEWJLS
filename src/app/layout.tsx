@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'FinanceFlow PWA',
+  title: 'JLS FINACE LTD',
   description: 'Manage your finances with ease',
 };
 

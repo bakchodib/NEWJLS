@@ -56,7 +56,7 @@ export default function LoginPage() {
             <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
               <Briefcase className="h-8 w-8" />
             </div>
-            <CardTitle className="text-3xl font-bold text-primary">FinanceFlow</CardTitle>
+            <CardTitle className="text-3xl font-bold text-primary">JLS FINACE LTD</CardTitle>
             <CardDescription className="text-muted-foreground">Select a role to sign in</CardDescription>
           </CardHeader>
           <Form {...form}>

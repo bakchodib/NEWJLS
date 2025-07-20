@@ -97,7 +97,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
                         className="flex items-center gap-2 text-lg font-semibold mb-4"
                         >
                             <Briefcase className="h-6 w-6" />
-                            <span>FinanceFlow</span>
+                            <span>JLS FINACE LTD</span>
                         </Link>
                         {navItems.map((item, index) => (
                              <Link
