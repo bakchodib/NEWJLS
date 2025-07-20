@@ -142,11 +142,11 @@ export default function RegisterCustomerPage() {
                   name="kycImage"
                   render={({ field: { onChange, value, ...rest } }) => (
                       <FormItem>
-                          <FormLabel>KYC Document</FormLabel>
+                          <FormLabel>KYC Document Photo</FormLabel>
                           <FormControl>
                               <Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} />
                           </FormControl>
-                          <FormDescription>Upload an identity document (e.g., Aadhar, PAN).</FormDescription>
+                          <FormDescription>Upload a photo of an identity document (e.g., Aadhar Card, PAN Card).</FormDescription>
                           <FormMessage />
                       </FormItem>
                   )}
