@@ -36,6 +36,124 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
     );
 }
 
+// Helper: Load image as Base64
+function loadImage(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.getContext("2d")?.drawImage(img, 0, 0);
+      const dataUrl = canvas.toDataURL("image/jpeg");
+      resolve(dataUrl);
+    };
+    img.onerror = (error) => reject(error);
+    img.src = url;
+  });
+}
+
+// Helper: Format number with commas
+function formatCurrency(value: number) {
+  return Number(value).toLocaleString("en-IN", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  });
+}
+
+/**
+ * Generates a beautifully formatted Loan Card PDF
+ * @param customer - Object with { name, id, customerPhoto }
+ * @param loan - Object with { id, amount, interestRate, tenure, disbursalDate }
+ * @param emiList - Array of EMIs with { dueDate, amount, principal, interest, balance, status }
+ */
+async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[]) {
+  const doc = new jsPDF();
+
+  // Header
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("JLS FINANCE LTD", 105, 15, { align: "center" });
+  doc.setFontSize(13);
+  doc.text("Loan Card", 105, 23, { align: "center" });
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 15, 30);
+
+  // Customer Photo (top right)
+  if (customer.customerPhoto) {
+    try {
+      // The image is already a Base64 data URI, so no conversion needed.
+      doc.addImage(customer.customerPhoto, "JPEG", 150, 35, 40, 40);
+    } catch {
+      doc.text("(Photo not loaded)", 150, 45);
+    }
+  }
+
+  // Loan & Customer Info Table using autoTable
+    const info = [
+        ["Customer Name:", customer.name],
+        ["Customer ID:", customer.id],
+        ["Loan ID:", loan.id],
+        ["Loan Amount:", `₹${formatCurrency(loan.amount)}`],
+        ["Interest Rate:", `${loan.interestRate}% p.a.`],
+        ["Tenure:", `${loan.tenure} months`],
+        ["Disbursal Date:", new Date(loan.disbursalDate).toLocaleDateString()],
+    ];
+
+    autoTable(doc, {
+        body: info,
+        startY: 35,
+        theme: 'plain',
+        tableWidth: 120,
+        styles: {
+            font: 'helvetica',
+            fontSize: 10,
+        },
+        columnStyles: {
+            0: { fontStyle: 'bold' }
+        }
+    });
+
+  let tableStartY = (doc as any).lastAutoTable.finalY + 10;
+
+
+  // EMI Schedule Table
+  const tableData = emiList.map((emi, i) => [
+    `${i + 1}`,
+    new Date(emi.dueDate).toLocaleDateString(),
+    `₹${formatCurrency(emi.amount)}`,
+    `₹${formatCurrency(emi.principal)}`,
+    `₹${formatCurrency(emi.interest)}`,
+    `₹${formatCurrency(emi.balance)}`,
+    emi.status,
+  ]);
+
+  autoTable(doc, {
+    startY: tableStartY,
+    head: [["#", "Due Date", "EMI Amount", "Principal", "Interest", "Balance", "Status"]],
+    body: tableData,
+    theme: "grid",
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [46, 71, 101], textColor: 255 }, // Dark Blue
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 20;
+
+  // Signatures
+  doc.setFont("helvetica", "normal");
+  doc.text("_____________________", 20, finalY);
+  doc.text("Authorized Signatory", 20, finalY + 6);
+  doc.text("_____________________", 130, finalY);
+  doc.text("Borrower Signature", 130, finalY + 6);
+
+  doc.save(`Loan_Card_${loan.id}.pdf`);
+}
+
+
 export default function LoanDetailsPage() {
   const [loan, setLoan] = useState<Loan | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -111,72 +229,6 @@ export default function LoanDetailsPage() {
     }
   };
 
-  const generateLoanCardPDF = async () => {
-    if(!loan || !customer) return;
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FinanceFlow Inc.', 14, 22);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Loan Card', 14, 30);
-    doc.setLineWidth(0.5);
-    doc.line(14, 34, 196, 34);
-
-    // Customer Photo
-    if (customer.customerPhoto) {
-        try {
-            doc.addImage(customer.customerPhoto, 'JPEG', 150, 15, 30, 30);
-        } catch(e) {
-            console.error("Error adding image to PDF:", e);
-             toast({ title: "PDF Error", description: "Could not add customer photo to PDF.", variant: "destructive" });
-        }
-    }
-
-    // Customer & Loan Details
-    autoTable(doc, {
-        startY: 40,
-        body: [
-            [{ content: 'Customer Name:', styles: { fontStyle: 'bold' } }, customer.name],
-            [{ content: 'Customer ID:', styles: { fontStyle: 'bold' } }, customer.id],
-            [{ content: 'Loan ID:', styles: { fontStyle: 'bold' } }, loan.id],
-            [{ content: 'Loan Amount:', styles: { fontStyle: 'bold' } }, `₹${loan.amount.toLocaleString()}`],
-            [{ content: 'Interest Rate:', styles: { fontStyle: 'bold' } }, `${loan.interestRate}% p.a.`],
-            [{ content: 'Tenure:', styles: { fontStyle: 'bold' } }, `${loan.tenure} months`],
-            [{ content: 'Disbursal Date:', styles: { fontStyle: 'bold' } }, new Date(loan.disbursalDate).toLocaleDateString()],
-        ],
-        theme: 'plain',
-        styles: { fontSize: 10 },
-    });
-    
-    const finalY = (doc as any).lastAutoTable.finalY;
-
-    // EMI Schedule Table
-    autoTable(doc, {
-        startY: finalY + 5,
-        head: [['#', 'Due Date', 'Amount', 'Principal', 'Interest', 'Balance', 'Status']],
-        body: loan.emis.map((emi, index) => [
-            index + 1,
-            new Date(emi.dueDate).toLocaleDateString(),
-            `₹${emi.amount.toLocaleString()}`,
-            `₹${emi.principal.toLocaleString()}`,
-            `₹${emi.interest.toLocaleString()}`,
-            `₹${emi.balance.toLocaleString()}`,
-            emi.status,
-        ]),
-        headStyles: { fillColor: [46, 71, 101] }, // Dark Blue
-        didDrawPage: (data) => {
-            // Footer
-            const pageCount = doc.internal.pages.length;
-            doc.setFontSize(8);
-            doc.text(`Page ${data.pageNumber} of ${pageCount}`, data.settings.margin.left, doc.internal.pageSize.getHeight() - 10);
-        }
-    });
-    
-    doc.save(`loan_card_${loan.id}.pdf`);
-  }
 
   const generateLoanAgreementPDF = async () => {
     if(!loan || !customer) return;
@@ -449,7 +501,7 @@ export default function LoanDetailsPage() {
   }
 
 
-  if (!loan) return <div>Loading loan details or loan not found...</div>;
+  if (!loan || !customer) return <div>Loading loan details or loan not found...</div>;
 
   const isClosed = loan.status === 'Closed';
 
@@ -477,7 +529,7 @@ export default function LoanDetailsPage() {
               </div>
             </div>
              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={generateLoanCardPDF}>Loan Card</Button>
+                <Button variant="outline" size="sm" onClick={() => generateLoanCardPDF(customer, loan, loan.emis)}>Loan Card</Button>
                 <Button variant="outline" size="sm" onClick={generateLoanAgreementPDF}>Loan Agreement</Button>
                 {role === 'admin' && (
                      <Tooltip>
