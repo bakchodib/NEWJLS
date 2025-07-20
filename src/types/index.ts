@@ -6,6 +6,8 @@ export interface Customer {
   phone: string;
   address: string;
   kycImage: string; // URL or base64 string
+  guarantorName: string;
+  guarantorPhone: string;
 }
 
 export interface EMI {

@@ -12,6 +12,7 @@ const getTitleFromPath = (path: string) => {
   if (path.includes('/customers')) return 'Customers';
   if (path.includes('/loans/apply')) return 'New Loan Application';
   if (path.includes('/loans/applications')) return 'Loan Applications';
+  if (path.includes('/loans/emi-collection')) return 'EMI Collection';
   if (path.startsWith('/loans/')) return 'Loan Details';
   if (path.includes('/loans')) return 'Loans';
   if (path.includes('/dashboard')) return 'Dashboard';

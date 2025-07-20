@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { LayoutDashboard, Users, Landmark, HandCoins, UserPlus, Briefcase, UserCog, FileText } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, HandCoins, UserPlus, Briefcase, UserCog, FileText, Download } from 'lucide-react';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -16,6 +16,7 @@ const adminNavItems = [
   { href: '/loans', label: 'Loans', icon: Landmark },
   { href: '/loans/applications', label: 'Applications', icon: FileText },
   { href: '/loans/apply', label: 'New Application', icon: HandCoins },
+  { href: '/loans/emi-collection', label: 'EMI Collection', icon: Download },
 ];
 
 const agentNavItems = [
@@ -23,6 +24,7 @@ const agentNavItems = [
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/customers/register', label: 'Register Customer', icon: UserPlus },
   { href: '/loans', label: 'Loans', icon: Landmark },
+  { href: '/loans/emi-collection', label: 'EMI Collection', icon: Download },
 ];
 
 const customerNavItems = [

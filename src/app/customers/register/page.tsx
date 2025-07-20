@@ -12,12 +12,15 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useEffect } from 'react';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   phone: z.string().regex(/^\d{10}$/, { message: 'Phone number must be 10 digits.' }),
   address: z.string().min(10, { message: 'Address must be at least 10 characters.' }),
   kycImage: z.any().refine(files => files?.length > 0, 'KYC image is required.'),
+  guarantorName: z.string().min(2, { message: 'Guarantor name must be at least 2 characters.' }),
+  guarantorPhone: z.string().regex(/^\d{10}$/, { message: 'Guarantor phone must be 10 digits.' }),
 });
 
 export default function RegisterCustomerPage() {
@@ -32,6 +35,8 @@ export default function RegisterCustomerPage() {
       phone: '',
       address: '',
       kycImage: undefined,
+      guarantorName: '',
+      guarantorPhone: '',
     },
   });
 
@@ -49,6 +54,8 @@ export default function RegisterCustomerPage() {
       phone: values.phone,
       address: values.address,
       kycImage: 'https://placehold.co/600x400.png',
+      guarantorName: values.guarantorName,
+      guarantorPhone: values.guarantorPhone,
     };
     addCustomer(newCustomer);
     toast({
@@ -72,59 +79,94 @@ export default function RegisterCustomerPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="9876543210" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="123 Main St, Anytown, USA" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="kycImage"
-                render={({ field: { onChange, value, ...rest } }) => (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Customer Details</h3>
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
                     <FormItem>
-                        <FormLabel>KYC Document</FormLabel>
-                        <FormControl>
-                            <Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} />
-                        </FormControl>
-                        <FormDescription>Upload an identity document (e.g., Aadhar, PAN).</FormDescription>
-                        <FormMessage />
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
                     </FormItem>
-                )}
+                  )}
                 />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="9876543210" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="123 Main St, Anytown, USA" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="kycImage"
+                  render={({ field: { onChange, value, ...rest } }) => (
+                      <FormItem>
+                          <FormLabel>KYC Document</FormLabel>
+                          <FormControl>
+                              <Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} />
+                          </FormControl>
+                          <FormDescription>Upload an identity document (e.g., Aadhar, PAN).</FormDescription>
+                          <FormMessage />
+                      </FormItem>
+                  )}
+                  />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Guarantor Details</h3>
+                <FormField
+                  control={form.control}
+                  name="guarantorName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Guarantor Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Jane Smith" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="guarantorPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Guarantor Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="9876543211" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <Button type="submit">Register Customer</Button>
             </form>
