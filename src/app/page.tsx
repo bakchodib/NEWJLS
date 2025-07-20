@@ -154,11 +154,8 @@ export default function LandingPage() {
         </section>
 
         {/* Part 2: How It Works Section */}
-        <section id="how-it-works" className="py-20 bg-muted/20 relative overflow-hidden">
-             <div className="absolute inset-0 z-0">
-                <Aurora colorStops={["#2E4765", "#45B3A9", "#F0F4F8"]} />
-             </div>
-             <div className="container mx-auto px-4 relative z-10">
+        <section id="how-it-works" className="py-20 bg-muted/20">
+             <div className="container mx-auto px-4">
                 <div className="text-center mb-12">
                     <h2 className="text-3xl md:text-4xl font-bold">Get Started in 3 Easy Steps</h2>
                     <p className="text-lg text-muted-foreground mt-2">A seamless workflow from start to finish.</p>
@@ -275,3 +272,5 @@ export default function LandingPage() {
     </div>
   );
 }
+
+    
