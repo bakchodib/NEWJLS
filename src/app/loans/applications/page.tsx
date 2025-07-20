@@ -12,9 +12,14 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BadgeCheck, XCircle, Hourglass, ChevronsRight, Pencil, Trash2 } from 'lucide-react';
+import { BadgeCheck, XCircle, Hourglass, ChevronsRight, Pencil, Trash2, CalendarIcon } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export default function LoanApplicationsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -22,6 +27,9 @@ export default function LoanApplicationsPage() {
   const { role, loading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  
+  const [disburseLoanId, setDisburseLoanId] = useState<string | null>(null);
+  const [disbursalDate, setDisbursalDate] = useState<Date | undefined>(new Date());
 
   const fetchLoans = async () => {
     try {
@@ -58,13 +66,20 @@ export default function LoanApplicationsPage() {
     }
   };
 
-  const handleDisburse = async (loanId: string) => {
+  const handleDisburseConfirm = async () => {
+    if (!disburseLoanId || !disbursalDate) {
+        toast({ title: 'Error', description: 'Loan ID or disbursal date is missing.', variant: 'destructive' });
+        return;
+    }
     try {
-        await disburseLoan(loanId);
+        await disburseLoan(disburseLoanId, disbursalDate);
         await fetchLoans();
-        toast({ title: 'Loan Disbursed', description: `Loan ${loanId} has been disbursed and EMI schedule generated.` });
+        toast({ title: 'Loan Disbursed', description: `Loan ${disburseLoanId} has been disbursed and EMI schedule generated.` });
     } catch (error) {
         toast({ title: 'Error', description: 'Failed to disburse loan.', variant: 'destructive' });
+    } finally {
+        setDisburseLoanId(null);
+        setDisbursalDate(new Date());
     }
   }
 
@@ -121,7 +136,7 @@ export default function LoanApplicationsPage() {
                             </>
                         )}
                         {type === 'Approved' && (
-                             <Button size="sm" onClick={() => handleDisburse(loan.id)}><ChevronsRight className="mr-2"/>Disburse</Button>
+                             <Button size="sm" onClick={() => setDisburseLoanId(loan.id)}><ChevronsRight className="mr-2"/>Disburse</Button>
                         )}
                          {type === 'Rejected' && (
                              <span className="text-xs text-muted-foreground">No actions available</span>
@@ -203,6 +218,45 @@ export default function LoanApplicationsPage() {
             </Tabs>
         </CardContent>
       </Card>
+      
+      <Dialog open={!!disburseLoanId} onOpenChange={(open) => !open && setDisburseLoanId(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Confirm Loan Disbursal</DialogTitle>
+                <DialogDescription>
+                    Select the date of disbursal for loan: {disburseLoanId}. The EMI schedule will be generated based on this date.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4">
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-[280px] justify-start text-left font-normal",
+                            !disbursalDate && "text-muted-foreground"
+                          )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {disbursalDate ? format(disbursalDate, "dd-MM-yyyy") : <span>Pick a date</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={disbursalDate}
+                          onSelect={setDisbursalDate}
+                          initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setDisburseLoanId(null)}>Cancel</Button>
+                <Button onClick={handleDisburseConfirm}>Confirm Disbursal</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

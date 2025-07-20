@@ -115,12 +115,12 @@ export const deleteLoan = async (loanId: string): Promise<void> => {
     await deleteDoc(doc(db, 'loans', loanId));
 }
 
-export const disburseLoan = async (loanId: string): Promise<Loan | null> => {
+export const disburseLoan = async (loanId: string, disbursalDate: Date = new Date()): Promise<Loan | null> => {
     const loan = await getLoanById(loanId);
     if (!loan || loan.status !== 'Approved') return null;
 
     loan.status = 'Disbursed';
-    loan.disbursalDate = new Date().toISOString();
+    loan.disbursalDate = disbursalDate.toISOString();
     loan.emis = calculateEmis(loan);
     
     await updateLoan(loan);
