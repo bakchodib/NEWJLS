@@ -103,10 +103,10 @@ export default function LoanApplicationsPage() {
                              <span className="text-xs text-muted-foreground">No actions available</span>
                         )}
                         {(type === 'Pending' || type === 'Approved') && (
-                             <Button asChild variant="outline" size="icon">
+                             <Button asChild variant="outline" size="sm">
                                 <Link href={`/loans/edit/${loan.id}`}>
-                                    <Pencil className="h-4 w-4"/>
-                                    <span className="sr-only">Edit</span>
+                                    <Pencil className="mr-2 h-4 w-4"/>
+                                    Edit
                                 </Link>
                              </Button>
                         )}
