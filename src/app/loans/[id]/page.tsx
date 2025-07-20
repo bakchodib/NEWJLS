@@ -156,7 +156,7 @@ export default function LoanDetailsPage() {
         if(logoDataUrl){
             doc.addImage(logoDataUrl, 'PNG', margin, margin-4, 10, 10);
         }
-        doc.setFontSize(10);
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text('FinanceFlow Inc. - Loan Agreement', margin + 12, margin);
         doc.line(margin, margin + 2, pageWidth - margin, margin + 2);
