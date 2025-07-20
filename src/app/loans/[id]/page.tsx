@@ -66,14 +66,9 @@ function loadImage(url: string): Promise<string> {
   });
 }
 
-// Helper: Format number with commas and Rupee symbol
+// Helper: Format number with commas and "Rs." prefix for PDF
 function formatCurrency(value: number) {
-  return value.toLocaleString("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+  return `Rs. ${value.toLocaleString("en-IN")}`;
 }
 
 /**
@@ -547,7 +542,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
         </CardHeader>
         <CardContent>
             <div className="grid md:grid-cols-5 gap-4 text-sm">
-                <div><span className="font-medium text-muted-foreground">Principal:</span> <span className="font-bold">{formatCurrency(loan.amount)}</span></div>
+                <div><span className="font-medium text-muted-foreground">Principal:</span> <span className="font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(loan.amount)}</span></div>
                 <div><span className="font-medium text-muted-foreground">Interest Rate:</span> <span className="font-bold">{loan.interestRate}% p.a.</span></div>
                 <div><span className="font-medium text-muted-foreground">Tenure:</span> <span className="font-bold">{loan.tenure} months</span></div>
                  <div><span className="font-medium text-muted-foreground">Processing Fee:</span> <span className="font-bold">{loan.processingFee}%</span></div>
@@ -576,9 +571,9 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
               {loan.emis.map((emi) => (
                 <TableRow key={emi.id}>
                   <TableCell>{format(new Date(emi.dueDate), 'dd-MM-yyyy')}</TableCell>
-                  <TableCell>{formatCurrency(emi.amount)}</TableCell>
-                  <TableCell>{formatCurrency(emi.principal)}</TableCell>
-                  <TableCell>{formatCurrency(emi.interest)}</TableCell>
+                  <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(emi.amount)}</TableCell>
+                  <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(emi.principal)}</TableCell>
+                  <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(emi.interest)}</TableCell>
                   <TableCell>
                     <Badge variant={emi.status === 'Paid' ? 'default' : 'secondary'} className={emi.status === 'Paid' ? 'bg-green-600' : 'bg-yellow-500'}>
                         {emi.status === 'Paid' ? <CheckCircle className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1"/>}
@@ -617,3 +612,5 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
     </TooltipProvider>
   );
 }
+
+    
