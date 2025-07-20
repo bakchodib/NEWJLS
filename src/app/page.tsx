@@ -145,7 +145,7 @@ export default function LandingPage() {
               blend={0.5}
               amplitude={0.5}
             />
-            <div className="container mx-auto px-4 grid md:grid-cols-2 gap-8 items-center">
+            <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                 <div className="z-10 text-left">
                      <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter text-primary">
                         Empowering Rural Finance
@@ -162,7 +162,7 @@ export default function LandingPage() {
                         </Button>
                     </div>
                 </div>
-                <div className="relative h-[400px] w-full hidden md:flex items-center justify-center">
+                <div className="relative h-[400px] w-full flex items-center justify-center">
                     <CardSwap width={300} height={250} cardDistance={50} verticalDistance={60} delay={4000}>
                         <Card customClass="bg-card text-card-foreground p-6 flex flex-col justify-center items-center text-center">
                           <Landmark className="h-12 w-12 mb-4 text-primary"/>
