@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -8,10 +9,24 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { User, Shield, Briefcase } from 'lucide-react';
+import { useForm, Controller } from 'react-hook-form';
+import * as z from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+
+const formSchema = z.object({
+  role: z.enum(['customer', 'agent', 'admin'], {
+    required_error: 'Please select a role.',
+  }),
+});
 
 export default function LoginPage() {
   const { role, setRole, loading } = useAuth();
   const router = useRouter();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+  });
 
   useEffect(() => {
     if (role) {
@@ -19,11 +34,9 @@ export default function LoginPage() {
     }
   }, [role, router]);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const selectedRole = (e.target as any).role.value;
-    if (selectedRole) {
-      setRole(selectedRole);
+  const handleLogin = (values: z.infer<typeof formSchema>) => {
+    if (values.role) {
+      setRole(values.role);
     }
   };
 
@@ -46,43 +59,54 @@ export default function LoginPage() {
             <CardTitle className="text-3xl font-bold text-primary">FinanceFlow</CardTitle>
             <CardDescription className="text-muted-foreground">Select a role to sign in</CardDescription>
           </CardHeader>
-          <form onSubmit={handleLogin}>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="role">User Role</Label>
-                <Select name="role" required defaultValue="">
-                  <SelectTrigger id="role" className="w-full">
-                    <SelectValue placeholder="Select a role..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="customer">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span>Customer</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="agent">
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4" />
-                        <span>Agent</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        <span>Admin</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" className="w-full bg-accent hover:bg-accent/90">
-                Sign In
-              </Button>
-            </CardFooter>
-          </form>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleLogin)}>
+              <CardContent className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Label htmlFor="role">User Role</Label>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger id="role" className="w-full">
+                            <SelectValue placeholder="Select a role..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="customer">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4" />
+                              <span>Customer</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="agent">
+                            <div className="flex items-center gap-2">
+                              <Briefcase className="h-4 w-4" />
+                              <span>Agent</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="admin">
+                            <div className="flex items-center gap-2">
+                              <Shield className="h-4 w-4" />
+                              <span>Admin</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="w-full bg-accent hover:bg-accent/90">
+                  Sign In
+                </Button>
+              </CardFooter>
+            </form>
+          </Form>
         </Card>
       </div>
     </main>
