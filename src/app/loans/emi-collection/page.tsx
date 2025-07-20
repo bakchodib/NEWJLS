@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { getLoans, getCustomers, updateLoan } from '@/lib/storage';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { getLoans, getCustomers, updateLoan, getLoanById } from '@/lib/storage';
 import type { Loan, Customer, EMI } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,6 +15,7 @@ import autoTable from 'jspdf-autotable';
 import { Download, Wallet, MessageCircle } from 'lucide-react';
 import { format, getYear, getMonth, setYear, setMonth } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DueEmi extends EMI {
   loanId: string;
@@ -41,53 +42,64 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
 export default function EmiCollectionPage() {
   const [dueEmis, setDueEmis] = useState<DueEmi[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(true);
   const { role, loading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [whatsappPreview, setWhatsappPreview] = useState({ open: false, message: '' });
 
   const years = useMemo(() => {
-    const allLoans = getLoans();
-    const allEmis = allLoans.flatMap(l => l.emis);
-    const loanYears = new Set(allEmis.map(emi => getYear(new Date(emi.dueDate))));
-    if (!loanYears.has(getYear(new Date()))) {
-        loanYears.add(getYear(new Date()));
-    }
-    return Array.from(loanYears).sort((a, b) => b - a);
+    // Just provide a range of years for simplicity
+    const currentYear = getYear(new Date());
+    return Array.from({ length: 10 }, (_, i) => currentYear - 5 + i).sort((a,b) => b-a);
   }, []);
 
   const months = useMemo(() => {
       return Array.from({length: 12}, (_, i) => ({ value: i, name: format(new Date(2000, i), 'MMMM')}))
   }, []);
 
+  const fetchDueEmis = useCallback(async () => {
+    try {
+        setIsLoading(true);
+        const [loans, customers] = await Promise.all([getLoans(), getCustomers()]);
+        
+        const customersMap = new Map(customers.map(c => [c.id, c]));
+        const disbursedLoans = loans.filter(l => l.status === 'Disbursed');
+        
+        const selectedMonth = getMonth(selectedDate);
+        const selectedYear = getYear(selectedDate);
+
+        const monthlyDueEmis: DueEmi[] = [];
+
+        disbursedLoans.forEach(loan => {
+            const customer = customersMap.get(loan.customerId);
+            if (!customer) return;
+
+            loan.emis.forEach(emi => {
+            const dueDate = new Date(emi.dueDate);
+            if (emi.status === 'Pending' && getMonth(dueDate) === selectedMonth && getYear(dueDate) === selectedYear) {
+                monthlyDueEmis.push({ ...emi, loanId: loan.id, customer });
+            }
+            });
+        });
+
+        setDueEmis(monthlyDueEmis.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
+    } catch(error) {
+        toast({ title: 'Error', description: 'Failed to fetch due EMIs.', variant: 'destructive' });
+    } finally {
+        setIsLoading(false);
+    }
+  }, [selectedDate, toast]);
+
+
   useEffect(() => {
     if (!loading && (role !== 'admin' && role !== 'agent')) {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
     } else {
-      const loans = getLoans().filter(l => l.status === 'Disbursed');
-      const customers = getCustomers();
-      
-      const selectedMonth = getMonth(selectedDate);
-      const selectedYear = getYear(selectedDate);
-
-      const monthlyDueEmis: DueEmi[] = [];
-
-      loans.forEach(loan => {
-        const customer = customers.find(c => c.id === loan.customerId);
-        if (!customer) return;
-
-        loan.emis.forEach(emi => {
-          const dueDate = new Date(emi.dueDate);
-          if (emi.status === 'Pending' && getMonth(dueDate) === selectedMonth && getYear(dueDate) === selectedYear) {
-            monthlyDueEmis.push({ ...emi, loanId: loan.id, customer });
-          }
-        });
-      });
-
-      setDueEmis(monthlyDueEmis.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
+      fetchDueEmis();
     }
-  }, [role, loading, router, toast, selectedDate]);
+  }, [role, loading, router, toast, fetchDueEmis]);
 
   const totalDueAmount = useMemo(() => {
     return dueEmis.reduce((acc, emi) => acc + emi.amount, 0);
@@ -101,9 +113,8 @@ export default function EmiCollectionPage() {
     setSelectedDate(current => setYear(current, parseInt(yearValue, 10)));
   }
 
-  const handleCollectEmi = (loanId: string, emiId: string) => {
-    const loans = getLoans();
-    const loan = loans.find(l => l.id === loanId);
+  const handleCollectEmi = async (loanId: string, emiId: string) => {
+    const loan = await getLoanById(loanId);
     if (!loan) return;
 
     let collectedEmi: EMI | undefined;
@@ -126,21 +137,24 @@ export default function EmiCollectionPage() {
     });
 
     const updatedLoan = { ...loan, emis: updatedEmis };
-    updateLoan(updatedLoan);
-
-    // Refresh the list
-    setDueEmis(prevEmis => prevEmis.filter(emi => emi.id !== emiId));
     
-    toast({
-        title: 'EMI Collected!',
-        description: `Successfully collected ₹${collectedEmi?.amount} from ${loan.customerName}.`,
-    });
-
-     if (collectedEmi) {
-        setWhatsappPreview({
-            open: true,
-            message: `Dear ${loan.customerName}, your EMI payment of ₹${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
+    try {
+        await updateLoan(updatedLoan);
+        await fetchDueEmis(); // Refresh the list
+        
+        toast({
+            title: 'EMI Collected!',
+            description: `Successfully collected ₹${collectedEmi?.amount} from ${loan.customerName}.`,
         });
+
+         if (collectedEmi) {
+            setWhatsappPreview({
+                open: true,
+                message: `Dear ${loan.customerName}, your EMI payment of ₹${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
+            });
+        }
+    } catch (error) {
+        toast({ title: 'Error', description: 'Failed to collect EMI.', variant: 'destructive' });
     }
   }
 
@@ -149,12 +163,10 @@ export default function EmiCollectionPage() {
     const doc = new jsPDF();
     const monthName = format(selectedDate, 'MMMM yyyy');
 
-    doc.setFontSize(18);
-    doc.text(`FinanceFlow Inc.`, 14, 22);
-    doc.setFontSize(12)
-    doc.text(`EMI Due Report - ${monthName}`, 14, 32);
+    doc.setFontSize(12);
+    doc.text(`EMI Due Report - ${monthName}`, 14, 22);
 
-    const body = dueEmis.map((emi, index) => {
+    const body = dueEmis.map((emi) => {
         return [
             emi.customer.name,
             emi.customer.phone,
@@ -165,7 +177,7 @@ export default function EmiCollectionPage() {
     });
 
     autoTable(doc, {
-        startY: 40,
+        startY: 30,
         head: [['Customer', 'Phone', 'Guarantor', 'Guarantor Phone', 'EMI Amount']],
         body: body,
         foot: [[ {content: `Total Due: ₹${totalDueAmount.toLocaleString()}`, colSpan: 5, styles: { halign: 'right' } } ]],
@@ -175,6 +187,17 @@ export default function EmiCollectionPage() {
     
     doc.save(`emi_due_report_${monthName.toLowerCase().replace(' ', '_')}.pdf`);
   }
+
+  const renderSkeleton = () => (
+    Array.from({ length: 5 }).map((_, i) => (
+        <TableRow key={i}>
+            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+            <TableCell><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+        </TableRow>
+    ))
+  );
 
   if (loading || (role !== 'admin' && role !== 'agent')) {
     return <div>Loading...</div>;
@@ -235,7 +258,7 @@ export default function EmiCollectionPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dueEmis.length > 0 ? (
+              {isLoading ? renderSkeleton() : dueEmis.length > 0 ? (
                 dueEmis.map((emi) => (
                   <TableRow key={emi.id}>
                     <TableCell className="font-medium">
@@ -266,5 +289,3 @@ export default function EmiCollectionPage() {
     </div>
   );
 }
-
-    

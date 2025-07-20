@@ -4,10 +4,10 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getCustomers, updateCustomer } from '@/lib/storage';
+import { getCustomerById, updateCustomer } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useParams } from 'next/navigation';
@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import { Separator } from '@/components/ui/separator';
 import type { Customer } from '@/types';
 
+// Form schema without KYC fields as they are not editable
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   phone: z.string().regex(/^\d{10}$/, { message: 'Phone number must be 10 digits.' }),
@@ -29,9 +30,10 @@ export default function EditCustomerPage() {
   const router = useRouter();
   const params = useParams();
   const { id } = params;
-  const { role, loading } = useAuth();
+  const { role, loading: authLoading } = useAuth();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -45,52 +47,69 @@ export default function EditCustomerPage() {
   });
 
   useEffect(() => {
-    if (!loading && (role === 'customer' || !role)) {
+    if (!authLoading && (role === 'customer' || !role)) {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
+      return;
     }
 
-    if (id) {
-        const customers = getCustomers();
-        const foundCustomer = customers.find(c => c.id === id);
-        if (foundCustomer) {
-            setCustomer(foundCustomer);
-            form.reset({
-                name: foundCustomer.name,
-                phone: foundCustomer.phone,
-                address: foundCustomer.address,
-                guarantorName: foundCustomer.guarantorName,
-                guarantorPhone: foundCustomer.guarantorPhone,
-            });
-        } else {
-            toast({ title: 'Not Found', description: 'Customer not found.', variant: 'destructive' });
-            router.replace('/customers');
+    if (id && typeof id === 'string') {
+      const fetchCustomer = async () => {
+        try {
+          setPageLoading(true);
+          const foundCustomer = await getCustomerById(id);
+          if (foundCustomer) {
+              setCustomer(foundCustomer);
+              form.reset({
+                  name: foundCustomer.name,
+                  phone: foundCustomer.phone,
+                  address: foundCustomer.address,
+                  guarantorName: foundCustomer.guarantorName,
+                  guarantorPhone: foundCustomer.guarantorPhone,
+              });
+          } else {
+              toast({ title: 'Not Found', description: 'Customer not found.', variant: 'destructive' });
+              router.replace('/customers');
+          }
+        } catch(error) {
+            toast({ title: 'Error', description: 'Failed to load customer data.', variant: 'destructive' });
+        } finally {
+            setPageLoading(false);
         }
+      };
+      fetchCustomer();
     }
-  }, [id, role, loading, router, toast, form]);
+  }, [id, role, authLoading, router, toast, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!customer) return;
     setIsSubmitting(true);
     
-    const updatedCustomerData = {
+    const updatedCustomerData: Customer = {
         ...customer,
         ...values,
     };
 
-    updateCustomer(updatedCustomerData);
-    
-    toast({
-      title: 'Customer Updated!',
-      description: `${values.name}'s details have been successfully updated.`,
-    });
-    router.push('/customers');
-
-    setIsSubmitting(false);
+    try {
+      await updateCustomer(updatedCustomerData);
+      toast({
+        title: 'Customer Updated!',
+        description: `${values.name}'s details have been successfully updated.`,
+      });
+      router.push('/customers');
+    } catch(error) {
+       toast({ title: 'Update Failed', description: 'Could not update customer details.', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  if (loading || !customer) {
+  if (pageLoading || authLoading) {
     return <div>Loading customer data...</div>;
+  }
+
+  if (!customer) {
+    return <div>Customer not found.</div>
   }
 
   return (

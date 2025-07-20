@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -9,11 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Upload } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type AppUser = {
   id: string;
@@ -21,19 +20,12 @@ type AppUser = {
   role: 'admin' | 'agent' | 'customer';
 };
 
-const getInitialUsers = (): AppUser[] => {
-    if (typeof window === 'undefined') return [];
-    const storedUsers = localStorage.getItem('appUsers');
-    if (storedUsers) {
-        return JSON.parse(storedUsers);
-    }
-    const defaultUsers: AppUser[] = [
-        { id: 'user-admin-01', name: 'Admin User', role: 'admin' },
-        { id: 'user-agent-01', name: 'Agent User', role: 'agent' },
-    ];
-    localStorage.setItem('appUsers', JSON.stringify(defaultUsers));
-    return defaultUsers;
-};
+// NOTE: This component assumes a 'users' collection exists in Firestore.
+// You need to manually create this collection and add documents for admin/agent users.
+// e.g., { name: "Admin User", role: "admin" }, { name: "Agent User", role: "agent" }
+// Customer roles are not managed here; they are derived from the main customer list.
+
+const usersCollection = collection(db, 'users');
 
 export default function UserManagementPage() {
   const { role, loading } = useAuth();
@@ -41,29 +33,44 @@ export default function UserManagementPage() {
   const { toast } = useToast();
   const [users, setUsers] = useState<AppUser[]>([]);
   
+  const fetchUsers = useCallback(async () => {
+    try {
+      const querySnapshot = await getDocs(usersCollection);
+      const fetchedUsers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
+      setUsers(fetchedUsers);
+    } catch (error) {
+      toast({ title: "Error", description: "Could not fetch users from Firestore.", variant: "destructive" });
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (!loading && role !== 'admin') {
       toast({ title: 'Unauthorized', description: 'You do not have permission to view this page.', variant: 'destructive' });
       router.replace('/dashboard');
     } else if (role === 'admin') {
-      setUsers(getInitialUsers());
+      fetchUsers();
     }
-  }, [role, loading, router, toast]);
+  }, [role, loading, router, toast, fetchUsers]);
 
-  const handleRoleChange = (userId: string, newRole: 'admin' | 'agent' | 'customer') => {
-    const updatedUsers = users.map(user => 
-      user.id === userId ? { ...user, role: newRole } : user
-    );
-    setUsers(updatedUsers);
-    localStorage.setItem('appUsers', JSON.stringify(updatedUsers));
-    toast({ title: 'Success', description: `User role has been updated.` });
+  const handleRoleChange = async (userId: string, newRole: 'admin' | 'agent' | 'customer') => {
+    try {
+      const userDoc = doc(db, 'users', userId);
+      await updateDoc(userDoc, { role: newRole });
+      await fetchUsers();
+      toast({ title: 'Success', description: `User role has been updated.` });
+    } catch (error) {
+       toast({ title: 'Error', description: `Failed to update user role.`, variant: 'destructive' });
+    }
   };
 
-  const handleDeleteUser = (userId: string) => {
-    const updatedUsers = users.filter(user => user.id !== userId);
-    setUsers(updatedUsers);
-    localStorage.setItem('appUsers', JSON.stringify(updatedUsers));
-    toast({ title: 'User Deleted', description: `The user has been removed from the system.` });
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      await fetchUsers();
+      toast({ title: 'User Deleted', description: `The user has been removed from the system.` });
+    } catch (error) {
+       toast({ title: 'Error', description: `Failed to delete user.`, variant: 'destructive' });
+    }
   };
 
   if (loading || role !== 'admin') {
@@ -75,7 +82,7 @@ export default function UserManagementPage() {
       <Card>
         <CardHeader>
           <CardTitle>User Management</CardTitle>
-          <CardDescription>Manage user roles and access for the application.</CardDescription>
+          <CardDescription>Manage user roles for admins and agents. Customer roles are handled automatically.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -100,7 +107,7 @@ export default function UserManagementPage() {
                         <SelectContent>
                             <SelectItem value="admin">Admin</SelectItem>
                             <SelectItem value="agent">Agent</SelectItem>
-                            <SelectItem value="customer">Customer</SelectItem>
+                            <SelectItem value="customer" disabled>Customer (Managed via Customer list)</SelectItem>
                         </SelectContent>
                     </Select>
                   </TableCell>

@@ -1,139 +1,132 @@
 
 import type { Customer, Loan, LoanStatus } from '@/types';
-
-const isClient = typeof window !== 'undefined';
-
-function getFromStorage<T>(key: string, defaultValue: T): T {
-  if (!isClient) return defaultValue;
-  try {
-    const item = window.localStorage.getItem(key);
-    return item ? JSON.parse(item) : defaultValue;
-  } catch (error) {
-    console.error(`Error reading from localStorage key "${key}":`, error);
-    return defaultValue;
-  }
-}
-
-function saveToStorage<T>(key: string, value: T): void {
-  if (!isClient) return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.error(`Error writing to localStorage key "${key}":`, error);
-  }
-}
+import { db, storage } from './firebase';
+import { 
+    collection, 
+    getDocs, 
+    addDoc, 
+    doc, 
+    updateDoc, 
+    deleteDoc, 
+    getDoc,
+    query,
+    where,
+    writeBatch
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Customer Functions
-export const getCustomers = (): Customer[] => getFromStorage<Customer[]>('customers', []);
+const customersCollection = collection(db, 'customers');
+const loansCollection = collection(db, 'loans');
 
-export const saveCustomers = (customers: Customer[]) => saveToStorage('customers', customers);
 
-export const addCustomer = (customer: Omit<Customer, 'id'>): Customer => {
-  const customers = getCustomers();
-  const newCustomer: Customer = { ...customer, id: `CUST_${Date.now()}` };
-  saveCustomers([...customers, newCustomer]);
-  return newCustomer;
+export const getCustomers = async (): Promise<Customer[]> => {
+  const querySnapshot = await getDocs(customersCollection);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
 };
 
-export const updateCustomer = (updatedCustomer: Customer): void => {
-    const customers = getCustomers();
-    const index = customers.findIndex(c => c.id === updatedCustomer.id);
-    if (index !== -1) {
-        const oldCustomer = customers[index];
-        customers[index] = updatedCustomer;
-        saveCustomers(customers);
+export const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
+  const docRef = await addDoc(customersCollection, customer);
+  return { id: docRef.id, ...customer };
+};
 
-        // If customer name changed, update it in their loans
-        if (oldCustomer.name !== updatedCustomer.name) {
-            const loans = getLoans();
-            const updatedLoans = loans.map(loan => {
-                if (loan.customerId === updatedCustomer.id) {
-                    return { ...loan, customerName: updatedCustomer.name };
-                }
-                return loan;
-            });
-            saveLoans(updatedLoans);
-        }
+export const updateCustomer = async (updatedCustomer: Customer): Promise<void> => {
+    const customerDoc = doc(db, 'customers', updatedCustomer.id);
+    const { id, ...customerData } = updatedCustomer;
+    await updateDoc(customerDoc, customerData);
+
+    // If customer name changed, update it in their loans
+    const loansQuery = query(loansCollection, where("customerId", "==", id));
+    const loansSnapshot = await getDocs(loansQuery);
+    
+    if (!loansSnapshot.empty) {
+        const batch = writeBatch(db);
+        loansSnapshot.forEach(loanDoc => {
+            const loanRef = doc(db, "loans", loanDoc.id);
+            batch.update(loanRef, { customerName: updatedCustomer.name });
+        });
+        await batch.commit();
     }
 }
 
-export const deleteCustomer = (customerId: string): void => {
-    const customers = getCustomers();
-    const loans = getLoans();
-    // Prevent deletion if customer has loans
-    if (loans.some(loan => loan.customerId === customerId)) {
-        console.error("Cannot delete customer with existing loans.");
-        return;
+export const deleteCustomer = async (customerId: string): Promise<void> => {
+    // Check if customer has loans
+    const loansQuery = query(loansCollection, where("customerId", "==", customerId));
+    const loansSnapshot = await getDocs(loansQuery);
+    if (!loansSnapshot.empty) {
+        throw new Error("Cannot delete customer with existing loans.");
     }
-    const updatedCustomers = customers.filter(c => c.id !== customerId);
-    saveCustomers(updatedCustomers);
+    await deleteDoc(doc(db, 'customers', customerId));
 }
-
 
 // Loan Functions
-export const getLoans = (): Loan[] => getFromStorage<Loan[]>('loans', []);
+export const getLoans = async (): Promise<Loan[]> => {
+    const querySnapshot = await getDocs(loansCollection);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+};
 
-export const saveLoans = (loans: Loan[]) => saveToStorage('loans', loans);
+export const getLoanById = async (loanId: string): Promise<Loan | null> => {
+    const loanDoc = await getDoc(doc(db, 'loans', loanId));
+    if (loanDoc.exists()) {
+        return { id: loanDoc.id, ...loanDoc.data() } as Loan;
+    }
+    return null;
+}
 
-export const addLoan = (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate'>): Loan => {
-  const loans = getLoans();
-  const newLoan: Loan = { 
+export const getCustomerById = async (customerId: string): Promise<Customer | null> => {
+    const customerDoc = await getDoc(doc(db, 'customers', customerId));
+    if (customerDoc.exists()) {
+        return { id: customerDoc.id, ...customerDoc.data() } as Customer;
+    }
+    return null;
+}
+
+
+export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate'>): Promise<Loan> => {
+  const newLoanData = { 
       ...loan, 
-      id: `LOAN_${Date.now()}`,
-      status: 'Pending',
-      disbursalDate: '', // Will be set on approval/disbursal
+      status: 'Pending' as LoanStatus,
+      disbursalDate: '', 
       emis: [],
       history: [],
   };
-  
-  saveLoans([...loans, newLoan]);
-  return newLoan;
+  const docRef = await addDoc(loansCollection, newLoanData);
+  return { id: docRef.id, ...newLoanData };
 };
 
-// This function now handles EMI recalculation for disbursed loans
-export const updateLoan = (updatedLoan: Loan): void => {
-    const loans = getLoans();
-    const index = loans.findIndex(l => l.id === updatedLoan.id);
-    if(index !== -1) {
-        const oldLoan = loans[index];
-        // Check if a disbursed loan's terms have changed
-        const termsChanged = oldLoan.amount !== updatedLoan.amount || 
-                             oldLoan.interestRate !== updatedLoan.interestRate ||
-                             oldLoan.tenure !== updatedLoan.tenure;
+export const updateLoan = async (updatedLoan: Loan): Promise<void> => {
+    const loanDoc = doc(db, 'loans', updatedLoan.id);
+    const oldLoan = await getLoanById(updatedLoan.id);
+    if (!oldLoan) return;
+    
+    const { id, ...loanData } = updatedLoan;
 
-        if (updatedLoan.status === 'Disbursed' && termsChanged) {
-            // Recalculate EMIs. This will overwrite existing EMIs.
-            updatedLoan.emis = calculateEmis(updatedLoan);
-        }
-        
-        loans[index] = updatedLoan;
-        saveLoans(loans);
+     const termsChanged = oldLoan.amount !== updatedLoan.amount || 
+                         oldLoan.interestRate !== updatedLoan.interestRate ||
+                         oldLoan.tenure !== updatedLoan.tenure;
+
+    if (updatedLoan.status === 'Disbursed' && termsChanged) {
+        loanData.emis = calculateEmis(updatedLoan);
     }
+    
+    await updateDoc(loanDoc, loanData);
 }
 
-export const deleteLoan = (loanId: string): void => {
-    const loans = getLoans();
-    const updatedLoans = loans.filter(l => l.id !== loanId);
-    saveLoans(updatedLoans);
+export const deleteLoan = async (loanId: string): Promise<void> => {
+    await deleteDoc(doc(db, 'loans', loanId));
 }
 
-
-export const disburseLoan = (loanId: string): Loan | null => {
-    const loans = getLoans();
-    const loanIndex = loans.findIndex(l => l.id === loanId);
-    if (loanIndex === -1) return null;
-
-    const loan = loans[loanIndex];
-    if(loan.status !== 'Approved') return null; // Can only disburse approved loans
+export const disburseLoan = async (loanId: string): Promise<Loan | null> => {
+    const loan = await getLoanById(loanId);
+    if (!loan || loan.status !== 'Approved') return null;
 
     loan.status = 'Disbursed';
     loan.disbursalDate = new Date().toISOString();
     loan.emis = calculateEmis(loan);
     
-    updateLoan(loan);
+    await updateLoan(loan);
     return loan;
 }
-
 
 function calculateEmis(loan: Loan) {
     const principal = loan.amount;
@@ -144,16 +137,17 @@ function calculateEmis(loan: Loan) {
         return [];
     }
     
-    // PMT formula for EMI calculation
     const emiAmount = (principal * monthlyInterestRate * Math.pow(1 + monthlyInterestRate, tenureInMonths)) / (Math.pow(1 + monthlyInterestRate, tenureInMonths) - 1);
     
     let balance = principal;
     const newEmis = [];
+    const disbursalDate = loan.disbursalDate ? new Date(loan.disbursalDate) : new Date();
+
     for (let i = 0; i < tenureInMonths; i++) {
         const interest = balance * monthlyInterestRate;
         const principalComponent = emiAmount - interest;
         balance -= principalComponent;
-        const dueDate = new Date(loan.disbursalDate);
+        const dueDate = new Date(disbursalDate);
         dueDate.setMonth(dueDate.getMonth() + i + 1);
         
         newEmis.push({
@@ -162,9 +156,17 @@ function calculateEmis(loan: Loan) {
             amount: parseFloat(emiAmount.toFixed(2)),
             principal: parseFloat(principalComponent.toFixed(2)),
             interest: parseFloat(interest.toFixed(2)),
-            balance: parseFloat(Math.abs(balance) < 0.01 ? 0 : balance.toFixed(2)), // Set last balance to 0
+            balance: parseFloat(Math.abs(balance) < 0.01 ? 0 : balance.toFixed(2)),
             status: 'Pending' as const,
         });
     }
     return newEmis;
 }
+
+// Firebase Storage file upload
+export const uploadFile = async (file: File, path: string): Promise<string> => {
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
+};

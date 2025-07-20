@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getLoans, updateLoan, getCustomers } from '@/lib/storage';
+import { getLoanById, updateLoan, getCustomers } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -34,31 +34,7 @@ export default function EditLoanPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loan, setLoan] = useState<Loan | null>(null);
   const { role, loading } = useAuth();
-
-  useEffect(() => {
-    if (!loading && role !== 'admin') {
-      toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
-      router.replace('/dashboard');
-    }
-    setCustomers(getCustomers());
-
-    if (id) {
-        const loans = getLoans();
-        const foundLoan = loans.find(l => l.id === id);
-        if (foundLoan) {
-            if (foundLoan.status === 'Closed') {
-                 toast({ title: 'Cannot Edit', description: 'Closed loans cannot be edited.', variant: 'destructive' });
-                 router.back();
-                 return;
-            }
-            setLoan(foundLoan);
-            form.reset(foundLoan);
-        } else {
-            toast({ title: 'Not Found', description: 'Loan not found.', variant: 'destructive' });
-            router.replace('/loans/applications');
-        }
-    }
-  }, [id, role, loading, router, toast]);
+  const [pageLoading, setPageLoading] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -71,7 +47,48 @@ export default function EditLoanPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  useEffect(() => {
+    if (!loading && role !== 'admin') {
+      toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
+      router.replace('/dashboard');
+    }
+    
+    const fetchData = async () => {
+        try {
+            setPageLoading(true);
+            const [fetchedCustomers, foundLoan] = await Promise.all([
+                getCustomers(),
+                id ? getLoanById(id as string) : Promise.resolve(null)
+            ]);
+
+            setCustomers(fetchedCustomers);
+
+            if (foundLoan) {
+                if (foundLoan.status === 'Closed') {
+                     toast({ title: 'Cannot Edit', description: 'Closed loans cannot be edited.', variant: 'destructive' });
+                     router.back();
+                     return;
+                }
+                setLoan(foundLoan);
+                form.reset(foundLoan);
+            } else if(id) {
+                toast({ title: 'Not Found', description: 'Loan not found.', variant: 'destructive' });
+                router.replace('/loans/applications');
+            }
+        } catch(error) {
+            toast({ title: 'Error', description: 'Failed to load data.', variant: 'destructive' });
+        } finally {
+            setPageLoading(false);
+        }
+    };
+
+    if (role === 'admin') {
+        fetchData();
+    }
+
+  }, [id, role, loading, router, toast, form]);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!loan) return;
 
     const customer = customers.find(c => c.id === values.customerId);
@@ -85,18 +102,25 @@ export default function EditLoanPage() {
       ...values,
       customerName: customer.name,
     };
-
-    updateLoan(updatedLoanData);
-
-    toast({
-      title: 'Loan Updated!',
-      description: `Loan for ${customer.name} has been successfully updated.`,
-    });
-    router.push(`/loans/${loan.id}`);
+    
+    try {
+        await updateLoan(updatedLoanData);
+        toast({
+          title: 'Loan Updated!',
+          description: `Loan for ${customer.name} has been successfully updated.`,
+        });
+        router.push(`/loans/${loan.id}`);
+    } catch(error) {
+        toast({ title: 'Error', description: 'Failed to update loan.', variant: 'destructive' });
+    }
   }
 
-  if (loading || role !== 'admin' || !loan) {
+  if (loading || pageLoading) {
       return <div>Loading...</div>;
+  }
+  
+  if (!loan) {
+      return <div>Loan not found.</div>
   }
 
   return (

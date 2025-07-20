@@ -13,17 +13,30 @@ import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function LoansPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { role } = useAuth();
   const { toast } = useToast();
   
+  const fetchLoans = async () => {
+    try {
+        setIsLoading(true);
+        const allLoans = await getLoans();
+        // In a real app, customer's view would be filtered by their ID.
+        // For this simulation, customers see all loans for demo purposes.
+        setLoans(allLoans.filter(l => l.status === 'Disbursed' || l.status === 'Closed'));
+    } catch (error) {
+        toast({ title: "Error", description: "Failed to fetch loans.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const allLoans = getLoans();
-    // In a real app, customer's view would be filtered by their ID.
-    // For this simulation, customers see all loans for demo purposes.
-    setLoans(allLoans.filter(l => l.status === 'Disbursed' || l.status === 'Closed'));
+    fetchLoans();
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -34,11 +47,29 @@ export default function LoansPage() {
     }
   }
 
-  const handleDelete = (loanId: string) => {
-    deleteLoan(loanId);
-    setLoans(getLoans().filter(l => l.status === 'Disbursed' || l.status === 'Closed'));
-    toast({ title: 'Loan Deleted', description: 'The loan has been permanently removed.' });
+  const handleDelete = async (loanId: string) => {
+    try {
+      await deleteLoan(loanId);
+      await fetchLoans();
+      toast({ title: 'Loan Deleted', description: 'The loan has been permanently removed.' });
+    } catch(error) {
+      toast({ title: "Error", description: "Failed to delete loan.", variant: "destructive" });
+    }
   }
+
+  const renderSkeleton = () => (
+    Array.from({ length: 3 }).map((_, i) => (
+        <TableRow key={i}>
+            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+            <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+            <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+        </TableRow>
+    ))
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -84,7 +115,7 @@ export default function LoansPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loans.length > 0 ? (
+              {isLoading ? renderSkeleton() : loans.length > 0 ? (
                 loans.map((loan) => (
                   <TableRow key={loan.id}>
                     <TableCell className="font-medium">{loan.id}</TableCell>

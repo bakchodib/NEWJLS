@@ -18,42 +18,64 @@ import Link from 'next/link';
 
 export default function LoanApplicationsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { role, loading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+
+  const fetchLoans = async () => {
+    try {
+      setIsLoading(true);
+      const allLoans = await getLoans();
+      setLoans(allLoans);
+    } catch(error) {
+      toast({ title: 'Error', description: 'Failed to fetch loan applications.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading && role !== 'admin') {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
     } else {
-      setLoans(getLoans());
+      fetchLoans();
     }
   }, [role, loading, router, toast]);
   
-  const updateLoanStatus = (loanId: string, status: 'Approved' | 'Rejected') => {
-    const allLoans = getLoans();
-    const loanToUpdate = allLoans.find(l => l.id === loanId);
+  const updateLoanStatus = async (loanId: string, status: 'Approved' | 'Rejected') => {
+    const loanToUpdate = loans.find(l => l.id === loanId);
     if (loanToUpdate) {
-      loanToUpdate.status = status;
-      updateLoan(loanToUpdate);
-      setLoans(getLoans());
-      toast({ title: `Loan ${status}`, description: `The loan application ${loanId} has been ${status.toLowerCase()}.` });
+      const updatedLoan = { ...loanToUpdate, status };
+      try {
+        await updateLoan(updatedLoan);
+        await fetchLoans();
+        toast({ title: `Loan ${status}`, description: `The loan application ${loanId} has been ${status.toLowerCase()}.` });
+      } catch (error) {
+        toast({ title: 'Error', description: 'Failed to update loan status.', variant: 'destructive' });
+      }
     }
   };
 
-  const handleDisburse = (loanId: string) => {
-    const disbursed = disburseLoan(loanId);
-    if(disbursed) {
-        setLoans(getLoans());
+  const handleDisburse = async (loanId: string) => {
+    try {
+        await disburseLoan(loanId);
+        await fetchLoans();
         toast({ title: 'Loan Disbursed', description: `Loan ${loanId} has been disbursed and EMI schedule generated.` });
+    } catch (error) {
+        toast({ title: 'Error', description: 'Failed to disburse loan.', variant: 'destructive' });
     }
   }
 
-  const handleDelete = (loanId: string) => {
-    deleteLoan(loanId);
-    setLoans(getLoans());
-    toast({ title: 'Loan Deleted', description: 'The loan has been permanently removed.' });
+  const handleDelete = async (loanId: string) => {
+    try {
+        await deleteLoan(loanId);
+        await fetchLoans();
+        toast({ title: 'Loan Deleted', description: 'The loan has been permanently removed.' });
+    } catch (error) {
+        toast({ title: 'Error', description: 'Failed to delete loan.', variant: 'destructive' });
+    }
   }
 
   const filteredLoans = useMemo(() => ({
@@ -80,7 +102,9 @@ export default function LoanApplicationsPage() {
             </TableRow>
         </TableHeader>
         <TableBody>
-            {loans.length > 0 ? (
+            {isLoading ? (
+              <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
+            ) : loans.length > 0 ? (
             loans.map((loan) => (
                 <TableRow key={loan.id}>
                 <TableCell className="font-medium">{loan.id}</TableCell>

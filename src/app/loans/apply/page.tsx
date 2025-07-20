@@ -31,13 +31,22 @@ export default function LoanApplicationPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const { role, loading } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && role !== 'admin') {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
     }
-    setCustomers(getCustomers());
+    const fetchCustomers = async () => {
+        try {
+            const fetchedCustomers = await getCustomers();
+            setCustomers(fetchedCustomers);
+        } catch(error) {
+            toast({ title: 'Error', description: 'Failed to load customers.', variant: 'destructive' });
+        }
+    }
+    fetchCustomers();
   }, [role, loading, router, toast]);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -51,10 +60,12 @@ export default function LoanApplicationPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
     const customer = customers.find(c => c.id === values.customerId);
     if (!customer) {
       toast({ title: 'Error', description: 'Selected customer not found.', variant: 'destructive' });
+      setIsSubmitting(false);
       return;
     }
 
@@ -62,14 +73,19 @@ export default function LoanApplicationPage() {
       ...values,
       customerName: customer.name,
     };
-
-    addLoan(newLoanData);
-
-    toast({
-      title: 'Application Submitted!',
-      description: `Loan application for ${customer.name} has been submitted for approval.`,
-    });
-    router.push('/loans/applications');
+    
+    try {
+        await addLoan(newLoanData);
+        toast({
+          title: 'Application Submitted!',
+          description: `Loan application for ${customer.name} has been submitted for approval.`,
+        });
+        router.push('/loans/applications');
+    } catch(error) {
+        toast({ title: 'Error', description: 'Failed to submit loan application.', variant: 'destructive' });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   if (loading || role !== 'admin') {
@@ -185,7 +201,9 @@ export default function LoanApplicationPage() {
                     )}
                 />
               </div>
-              <Button type="submit">Submit for Approval</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+              </Button>
             </form>
           </Form>
         </CardContent>

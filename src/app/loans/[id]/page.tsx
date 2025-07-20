@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getLoans, updateLoan, getCustomers } from '@/lib/storage';
+import { useEffect, useState, useCallback } from 'react';
+import { getLoanById, updateLoan, getCustomerById } from '@/lib/storage';
 import type { Loan, EMI, Customer } from '@/types';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -46,21 +46,26 @@ export default function LoanDetailsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  useEffect(() => {
-    if (id) {
-      const loans = getLoans();
-      const currentLoan = loans.find(l => l.id === id);
-      setLoan(currentLoan || null);
-      if (currentLoan) {
-        const customers = getCustomers();
-        const currentCustomer = customers.find(c => c.id === currentLoan.customerId);
-        setCustomer(currentCustomer || null);
-      }
+  const fetchLoanDetails = useCallback(async (loanId: string) => {
+    try {
+        const currentLoan = await getLoanById(loanId);
+        setLoan(currentLoan);
+        if (currentLoan) {
+            const currentCustomer = await getCustomerById(currentLoan.customerId);
+            setCustomer(currentCustomer);
+        }
+    } catch (error) {
+        toast({ title: "Error", description: "Failed to fetch loan details.", variant: "destructive" });
     }
-  }, [id]);
+  }, [toast]);
+
+  useEffect(() => {
+    if (id && typeof id === 'string') {
+        fetchLoanDetails(id);
+    }
+  }, [id, fetchLoanDetails]);
 
    const imageToDataUri = async (url: string): Promise<string | null> => {
-        // Attempt direct fetch first
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error('Direct fetch failed with status: ' + response.status);
@@ -73,7 +78,6 @@ export default function LoanDetailsPage() {
             });
         } catch (directError) {
             console.warn('Direct image fetch failed, trying proxy. Error:', directError);
-            // Fallback to CORS proxy if direct fetch fails
             try {
                 const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
                 const proxyResponse = await fetch(proxyUrl);
@@ -98,7 +102,7 @@ export default function LoanDetailsPage() {
     };
 
 
-  const handleCollectEmi = (emiId: string) => {
+  const handleCollectEmi = async (emiId: string) => {
     if (!loan) return;
     
     let collectedEmi: EMI | undefined;
@@ -122,25 +126,24 @@ export default function LoanDetailsPage() {
 
     const updatedLoan = { ...loan, emis: updatedEmis };
     
-    const allLoans = getLoans();
-    const loanIndexInStorage = allLoans.findIndex(l => l.id === loan.id);
-    if(loanIndexInStorage !== -1) {
-        const remainingPending = updatedLoan.emis.filter(e => e.status === 'Pending').length;
-        if (remainingPending === 0) {
-            updatedLoan.status = 'Closed';
-        }
-        allLoans[loanIndexInStorage] = updatedLoan;
-        updateLoan(updatedLoan); // This updates the loan in storage.
-        setLoan(updatedLoan); // This updates the local state to re-render the page.
+    const remainingPending = updatedLoan.emis.filter(e => e.status === 'Pending').length;
+    if (remainingPending === 0) {
+        updatedLoan.status = 'Closed';
     }
     
-    toast({ title: 'Success', description: `EMI ${emiIndex + 1} marked as paid.` });
-    
-    if (collectedEmi) {
-        setWhatsappPreview({
-            open: true,
-            message: `Dear ${loan.customerName}, your EMI payment of ₹${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
-        });
+    try {
+        await updateLoan(updatedLoan); 
+        await fetchLoanDetails(loan.id); // Refresh data from firestore
+        toast({ title: 'Success', description: `EMI ${emiIndex + 1} marked as paid.` });
+        
+        if (collectedEmi) {
+            setWhatsappPreview({
+                open: true,
+                message: `Dear ${loan.customerName}, your EMI payment of ₹${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
+            });
+        }
+    } catch (error) {
+        toast({ title: 'Error', description: "Failed to update EMI status.", variant: "destructive" });
     }
   };
 
@@ -150,13 +153,10 @@ export default function LoanDetailsPage() {
     
     const customerPhotoDataUri = customer.customerPhoto ? await imageToDataUri(customer.customerPhoto) : null;
     
-    doc.setFontSize(18);
-    doc.text(`FinanceFlow Inc.`, 14, 22);
-
     doc.setFontSize(11);
-    doc.text(`Loan Card`, 14, 32);
-    doc.text(`Loan ID: ${loan.id}`, 14, 38);
-    doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 44);
+    doc.text(`Loan Card`, 14, 22);
+    doc.text(`Loan ID: ${loan.id}`, 14, 28);
+    doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 34);
     
     if (customerPhotoDataUri) {
         doc.addImage(customerPhotoDataUri, 'JPEG', 150, 15, 30, 30);
@@ -171,7 +171,7 @@ export default function LoanDetailsPage() {
             `₹${emi.principal.toLocaleString()}`,
             `₹${emi.interest.toLocaleString()}`,
             `₹${emi.balance.toLocaleString()}`,
-            emi.status === 'Paid' ? 'Paid' : '',
+            emi.status,
         ]),
     });
     
@@ -199,7 +199,7 @@ export default function LoanDetailsPage() {
     const addHeader = () => {
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text('FinanceFlow Inc.', margin, margin + 2);
+        doc.text('Loan Agreement', margin, margin + 2);
         doc.line(margin, margin + 8, pageWidth - margin, margin + 8);
     };
 
@@ -215,7 +215,7 @@ export default function LoanDetailsPage() {
 
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('FinanceFlow Inc. - Loan Agreement', pageWidth / 2, 30, { align: 'center' });
+    doc.text('FinanceFlow Inc.', pageWidth / 2, 30, { align: 'center' });
 
     
     if (customerPhotoDataUri) {
@@ -360,11 +360,8 @@ export default function LoanDetailsPage() {
 
 
     // Header
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FinanceFlow Inc.', margin, margin + 2);
     doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('helvetica', 'bold');
     doc.text('Official Payment Receipt', margin, margin + 10);
     doc.line(margin, margin + 14, pageWidth - margin, margin + 14);
 
@@ -489,7 +486,7 @@ export default function LoanDetailsPage() {
                 <div><span className="font-medium text-muted-foreground">Interest Rate:</span> <span className="font-bold">{loan.interestRate}% p.a.</span></div>
                 <div><span className="font-medium text-muted-foreground">Tenure:</span> <span className="font-bold">{loan.tenure} months</span></div>
                  <div><span className="font-medium text-muted-foreground">Processing Fee:</span> <span className="font-bold">{loan.processingFee}%</span></div>
-                <div><span className="font-medium text-muted-foreground">Disbursed:</span> <span className="font-bold">{new Date(loan.disbursalDate).toLocaleDateString()}</span></div>
+                <div><span className="font-medium text-muted-foreground">Disbursed:</span> <span className="font-bold">{loan.disbursalDate ? new Date(loan.disbursalDate).toLocaleDateString() : 'N/A'}</span></div>
             </div>
         </CardContent>
       </Card>

@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { addCustomer } from '@/lib/storage';
+import { addCustomer, uploadFile } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -61,41 +61,18 @@ export default function RegisterCustomerPage() {
     }
   }, [role, loading, router, toast]);
 
-  const uploadToImgBB = async (imageFile: File): Promise<string | null> => {
-    const apiKey = '881d667e66f0b22ff45ba16e248fbcb2';
-    const formData = new FormData();
-    formData.append('image', imageFile);
-
-    try {
-        const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-            method: 'POST',
-            body: formData,
-        });
-        const result = await response.json();
-        if (result.success) {
-            return result.data.url;
-        } else {
-            console.error('ImgBB upload failed:', result);
-            return null;
-        }
-    } catch (error) {
-        console.error('Error uploading to ImgBB:', error);
-        return null;
-    }
-  };
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    toast({ title: 'Uploading Images...', description: 'Please wait while we upload the KYC documents.' });
+    toast({ title: 'Uploading Images...', description: 'Please wait while we upload the documents.' });
 
     try {
-        const customerPhotoUrl = await uploadToImgBB(values.customerPhoto[0]);
-        const aadharImageUrl = await uploadToImgBB(values.aadharImage[0]);
-        const panImageUrl = await uploadToImgBB(values.panImage[0]);
+        const customerPhotoFile = values.customerPhoto[0];
+        const aadharImageFile = values.aadharImage[0];
+        const panImageFile = values.panImage[0];
 
-        if (!customerPhotoUrl || !aadharImageUrl || !panImageUrl) {
-            throw new Error('One or more image uploads failed.');
-        }
+        const customerPhotoUrl = await uploadFile(customerPhotoFile, `customer_photos/${Date.now()}_${customerPhotoFile.name}`);
+        const aadharImageUrl = await uploadFile(aadharImageFile, `aadhar_images/${Date.now()}_${aadharImageFile.name}`);
+        const panImageUrl = await uploadFile(panImageFile, `pan_images/${Date.now()}_${panImageFile.name}`);
 
         const newCustomer = {
           name: values.name,
@@ -110,7 +87,7 @@ export default function RegisterCustomerPage() {
           guarantorPhone: values.guarantorPhone,
         };
 
-        addCustomer(newCustomer);
+        await addCustomer(newCustomer);
         
         toast({
           title: 'Customer Registered!',
