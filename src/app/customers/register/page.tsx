@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
@@ -35,6 +36,7 @@ export default function RegisterCustomerPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { role, loading } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -59,26 +61,72 @@ export default function RegisterCustomerPage() {
     }
   }, [role, loading, router, toast]);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Simulate image upload by using a placeholder
-    const newCustomer = {
-      name: values.name,
-      phone: values.phone,
-      address: values.address,
-      customerPhoto: 'https://placehold.co/400x400.png',
-      aadharNumber: values.aadharNumber,
-      aadharImage: 'https://placehold.co/600x400.png',
-      panNumber: values.panNumber,
-      panImage: 'https://placehold.co/600x400.png',
-      guarantorName: values.guarantorName,
-      guarantorPhone: values.guarantorPhone,
-    };
-    addCustomer(newCustomer);
-    toast({
-      title: 'Customer Registered!',
-      description: `${values.name} has been successfully added.`,
-    });
-    router.push('/customers');
+  const uploadToImgBB = async (imageFile: File): Promise<string | null> => {
+    const apiKey = '881d667e66f0b22ff45ba16e248fbcb2';
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    try {
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+            method: 'POST',
+            body: formData,
+        });
+        const result = await response.json();
+        if (result.success) {
+            return result.data.url;
+        } else {
+            console.error('ImgBB upload failed:', result);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error uploading to ImgBB:', error);
+        return null;
+    }
+  };
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    toast({ title: 'Uploading Images...', description: 'Please wait while we upload the KYC documents.' });
+
+    try {
+        const customerPhotoUrl = await uploadToImgBB(values.customerPhoto[0]);
+        const aadharImageUrl = await uploadToImgBB(values.aadharImage[0]);
+        const panImageUrl = await uploadToImgBB(values.panImage[0]);
+
+        if (!customerPhotoUrl || !aadharImageUrl || !panImageUrl) {
+            throw new Error('One or more image uploads failed.');
+        }
+
+        const newCustomer = {
+          name: values.name,
+          phone: values.phone,
+          address: values.address,
+          customerPhoto: customerPhotoUrl,
+          aadharNumber: values.aadharNumber,
+          aadharImage: aadharImageUrl,
+          panNumber: values.panNumber,
+          panImage: panImageUrl,
+          guarantorName: values.guarantorName,
+          guarantorPhone: values.guarantorPhone,
+        };
+
+        addCustomer(newCustomer);
+        
+        toast({
+          title: 'Customer Registered!',
+          description: `${values.name} has been successfully added.`,
+        });
+        router.push('/customers');
+
+    } catch (error) {
+        toast({
+            title: 'Upload Failed',
+            description: (error as Error).message || 'Could not upload images. Please try again.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   if (loading || role === 'customer') {
@@ -244,7 +292,9 @@ export default function RegisterCustomerPage() {
                 />
               </div>
 
-              <Button type="submit">Register Customer</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Submitting...' : 'Register Customer'}
+              </Button>
             </form>
           </Form>
         </CardContent>
