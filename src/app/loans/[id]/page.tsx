@@ -190,6 +190,9 @@ export default function LoanDetailsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const prepaymentFormMethods = useForm({ resolver: zodResolver(prepaymentSchema) });
+  const topupFormMethods = useForm({ resolver: zodResolver(topupSchema) });
+
   const fetchLoanDetails = useCallback(async (loanId: string) => {
     try {
         const currentLoan = await getLoanById(loanId);
@@ -598,9 +601,6 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
       </DialogFooter>
     </form>
   );
-
-  const prepaymentFormMethods = useForm({ resolver: zodResolver(prepaymentSchema) });
-  const topupFormMethods = useForm({ resolver: zodResolver(topupSchema) });
 
   return (
     <TooltipProvider>
