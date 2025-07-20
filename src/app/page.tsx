@@ -17,6 +17,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -85,10 +86,14 @@ export default function LoginPage() {
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Demo Credentials</AlertTitle>
                   <AlertDescription>
-                    <p>Use the following credentials to log in as an admin:</p>
+                    <p className="font-medium">Admin Login:</p>
                     <p className="font-mono text-sm">Email: <strong>admin@example.com</strong></p>
                     <p className="font-mono text-sm">Password: <strong>password</strong></p>
-                    <p className="text-xs mt-2 text-muted-foreground">Note: You must create this user in your Firebase Authentication and add a corresponding `role: "admin"` document in your Firestore `users` collection.</p>
+                    <Separator className="my-2" />
+                     <p className="font-medium">Agent Login:</p>
+                    <p className="font-mono text-sm">Email: <strong>agent@example.com</strong></p>
+                    <p className="font-mono text-sm">Password: <strong>password</strong></p>
+                    <p className="text-xs mt-2 text-muted-foreground">Note: You must create these users in Firebase Authentication and add corresponding role documents in your Firestore `users` collection.</p>
                   </AlertDescription>
                 </Alert>
                 <FormField
