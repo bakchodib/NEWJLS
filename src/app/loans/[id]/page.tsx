@@ -1,19 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getLoans, updateLoan } from '@/lib/storage';
-import type { Loan, EMI } from '@/types';
+import { getLoans, updateLoan, getCustomers } from '@/lib/storage';
+import type { Loan, EMI, Customer } from '@/types';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, FileDown, MessageCircle, Download, FileType } from 'lucide-react';
+import { CheckCircle, Clock, FileDown, MessageCircle, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 
 
 function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpenChange: (open: boolean) => void, message: string }) {
@@ -35,6 +34,7 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
 
 export default function LoanDetailsPage() {
   const [loan, setLoan] = useState<Loan | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [whatsappPreview, setWhatsappPreview] = useState({ open: false, message: '' });
   const params = useParams();
   const { id } = params;
@@ -46,6 +46,11 @@ export default function LoanDetailsPage() {
       const loans = getLoans();
       const currentLoan = loans.find(l => l.id === id);
       setLoan(currentLoan || null);
+      if (currentLoan) {
+        const customers = getCustomers();
+        const currentCustomer = customers.find(c => c.id === currentLoan.customerId);
+        setCustomer(currentCustomer || null);
+      }
     }
   }, [id]);
 
@@ -65,27 +70,16 @@ export default function LoanDetailsPage() {
     });
   };
 
-  const generatePDF = () => {
+  const generateLoanCardPDF = () => {
     if(!loan) return;
     const doc = new jsPDF();
     doc.setFontSize(18);
-    doc.text(`Loan Agreement - ${loan.id}`, 14, 22);
+    doc.text(`Loan Card - ${loan.id}`, 14, 22);
     doc.setFontSize(11);
     doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 32);
     
     autoTable(doc, {
         startY: 40,
-        head: [['Term', 'Details']],
-        body: [
-            ['Loan Amount', `$${loan.amount.toLocaleString()}`],
-            ['Interest Rate', `${loan.interestRate}% p.a.`],
-            ['Tenure', `${loan.tenure} months`],
-            ['Processing Fee', `${loan.processingFee}%`],
-            ['Disbursal Date', new Date(loan.disbursalDate).toLocaleDateString()],
-        ]
-    });
-
-    autoTable(doc, {
         head: [['Due Date', 'Amount', 'Principal', 'Interest', 'Balance', 'Status']],
         body: loan.emis.map(emi => [
             new Date(emi.dueDate).toLocaleDateString(),
@@ -95,26 +89,86 @@ export default function LoanDetailsPage() {
             `$${emi.balance.toLocaleString()}`,
             emi.status,
         ]),
-        foot: [['Total', '', '', '', '', '']],
     });
     
-    doc.save(`loan_${loan.id}_schedule.pdf`);
+    doc.save(`loan_card_${loan.id}.pdf`);
   }
 
-  const exportExcel = () => {
-    if(!loan) return;
-    const worksheet = XLSX.utils.json_to_sheet(loan.emis.map(emi => ({
-        'Due Date': new Date(emi.dueDate).toLocaleDateString(),
-        'Amount': emi.amount,
-        'Principal': emi.principal,
-        'Interest': emi.interest,
-        'Balance': emi.balance,
-        'Status': emi.status
-    })));
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'EMI Schedule');
-    XLSX.writeFile(workbook, `loan_${loan.id}_schedule.xlsx`);
+  const generateLoanAgreementPDF = async () => {
+    if(!loan || !customer) return;
+    const doc = new jsPDF();
+
+    // Add customer photo
+    if (customer.kycImage) {
+        try {
+            const response = await fetch(customer.kycImage);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => {
+                const base64data = reader.result as string;
+                doc.addImage(base64data, 'PNG', 150, 15, 45, 45);
+                
+                // Add content after image is loaded
+                addAgreementContent(doc);
+                doc.save(`loan_agreement_${loan.id}.pdf`);
+            };
+        } catch (error) {
+            console.error("Error fetching image for PDF:", error);
+            // Continue without image if fetch fails
+            addAgreementContent(doc);
+            doc.save(`loan_agreement_${loan.id}.pdf`);
+        }
+    } else {
+        addAgreementContent(doc);
+        doc.save(`loan_agreement_${loan.id}.pdf`);
+    }
   }
+
+  const addAgreementContent = (doc: jsPDF) => {
+     if(!loan || !customer) return;
+
+    doc.setFontSize(22);
+    doc.text('Loan Agreement', 14, 22);
+    doc.setFontSize(12);
+    doc.text(`Loan ID: ${loan.id}`, 14, 32);
+    
+    doc.line(14, 35, 196, 35); // Horizontal line
+
+    doc.setFontSize(14);
+    doc.text('Customer Details', 14, 45);
+    doc.setFontSize(10);
+    autoTable(doc, {
+        startY: 50,
+        theme: 'plain',
+        body: [
+            ['Name:', customer.name],
+            ['Customer ID:', customer.id],
+            ['Address:', customer.address],
+            ['Phone:', customer.phone],
+        ]
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY;
+
+    doc.setFontSize(14);
+    doc.text('Loan Terms', 14, finalY + 15);
+    doc.setFontSize(10);
+    const netDisbursed = loan.amount - (loan.amount * (loan.processingFee / 100));
+    autoTable(doc, {
+        startY: finalY + 20,
+        head: [['Term', 'Details']],
+        body: [
+            ['Principal Amount', `$${loan.amount.toLocaleString()}`],
+            ['Annual Interest Rate', `${loan.interestRate}%`],
+            ['Tenure', `${loan.tenure} months`],
+            ['Processing Fee', `${loan.processingFee}% ($${(loan.amount * (loan.processingFee / 100)).toLocaleString()})`],
+            ['Net Disbursed Amount', `$${netDisbursed.toLocaleString()}`],
+            ['Disbursal Date', new Date(loan.disbursalDate).toLocaleDateString()],
+        ]
+    });
+  }
+
 
   if (!loan) return <div>Loading loan details or loan not found...</div>;
 
@@ -133,8 +187,8 @@ export default function LoanDetailsPage() {
               <CardDescription>Customer: {loan.customerName} ({loan.customerId})</CardDescription>
             </div>
             <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={generatePDF}><FileDown className="h-4 w-4 mr-2"/> PDF</Button>
-                <Button variant="outline" size="sm" onClick={exportExcel}><FileType className="h-4 w-4 mr-2"/> Excel</Button>
+                <Button variant="outline" size="sm" onClick={generateLoanCardPDF}><FileDown className="h-4 w-4 mr-2"/> Loan Card</Button>
+                <Button variant="outline" size="sm" onClick={generateLoanAgreementPDF}><FileText className="h-4 w-4 mr-2"/> Loan Agreement</Button>
             </div>
           </div>
         </CardHeader>

@@ -69,6 +69,8 @@ export const disburseLoan = (loanId: string): Loan | null => {
     if (loanIndex === -1) return null;
 
     const loan = loans[loanIndex];
+    if(loan.status !== 'Approved') return null; // Can only disburse approved loans
+
     loan.status = 'Disbursed';
     loan.disbursalDate = new Date().toISOString();
 
