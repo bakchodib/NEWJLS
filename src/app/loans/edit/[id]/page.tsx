@@ -15,6 +15,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { Customer, Loan } from '@/types';
 import { useAuth } from '@/contexts/auth-context';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 const formSchema = z.object({
   customerId: z.string().min(1, { message: 'Please select a customer.' }),
@@ -44,8 +46,8 @@ export default function EditLoanPage() {
         const loans = getLoans();
         const foundLoan = loans.find(l => l.id === id);
         if (foundLoan) {
-            if (foundLoan.status === 'Disbursed' || foundLoan.status === 'Closed') {
-                 toast({ title: 'Cannot Edit', description: 'Disbursed or closed loans cannot be edited.', variant: 'destructive' });
+            if (foundLoan.status === 'Closed') {
+                 toast({ title: 'Cannot Edit', description: 'Closed loans cannot be edited.', variant: 'destructive' });
                  router.back();
                  return;
             }
@@ -87,10 +89,10 @@ export default function EditLoanPage() {
     updateLoan(updatedLoanData);
 
     toast({
-      title: 'Application Updated!',
-      description: `Loan application for ${customer.name} has been successfully updated.`,
+      title: 'Loan Updated!',
+      description: `Loan for ${customer.name} has been successfully updated.`,
     });
-    router.push('/loans/applications');
+    router.push(`/loans/${loan.id}`);
   }
 
   if (loading || role !== 'admin' || !loan) {
@@ -101,10 +103,20 @@ export default function EditLoanPage() {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Edit Loan Application</CardTitle>
+          <CardTitle>Edit Loan</CardTitle>
           <CardDescription>Update the details for loan ID: {loan.id}.</CardDescription>
         </CardHeader>
         <CardContent>
+          {loan.status === 'Disbursed' && (
+             <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Warning: Editing Disbursed Loan</AlertTitle>
+              <AlertDescription>
+                Changing the amount, interest rate, or tenure will recalculate and replace the entire EMI schedule. Previously paid EMIs will be disregarded in the new schedule.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <FormField

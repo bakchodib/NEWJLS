@@ -4,17 +4,19 @@
 import { useEffect, useState } from 'react';
 import { getLoans, updateLoan, getCustomers } from '@/lib/storage';
 import type { Loan, EMI, Customer } from '@/types';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, MessageCircle, Wallet, Download } from 'lucide-react';
+import { CheckCircle, Clock, MessageCircle, Wallet, Download, Pencil, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Link from 'next/link';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpenChange: (open: boolean) => void, message: string }) {
@@ -42,6 +44,7 @@ export default function LoanDetailsPage() {
   const { id } = params;
   const { role } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (id) {
@@ -433,7 +436,10 @@ export default function LoanDetailsPage() {
 
   if (!loan) return <div>Loading loan details or loan not found...</div>;
 
+  const isClosed = loan.status === 'Closed';
+
   return (
+    <TooltipProvider>
     <div className="flex flex-col gap-6">
       <WhatsappPreview 
         open={whatsappPreview.open} 
@@ -455,9 +461,26 @@ export default function LoanDetailsPage() {
                 <CardDescription>Customer: {loan.customerName} ({loan.customerId})</CardDescription>
               </div>
             </div>
-            <div className="flex gap-2">
+             <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={generateLoanCardPDF}>Loan Card</Button>
                 <Button variant="outline" size="sm" onClick={generateLoanAgreementPDF}>Loan Agreement</Button>
+                {role === 'admin' && (
+                     <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button asChild variant="outline" size="sm" disabled={isClosed}>
+                                <Link href={`/loans/edit/${loan.id}`}>
+                                    <Pencil className="mr-2 h-4 w-4"/>
+                                    Edit
+                                </Link>
+                             </Button>
+                        </TooltipTrigger>
+                        {isClosed && (
+                            <TooltipContent>
+                                <p>Closed loans cannot be edited.</p>
+                            </TooltipContent>
+                        )}
+                    </Tooltip>
+                )}
             </div>
           </div>
         </CardHeader>
@@ -530,5 +553,6 @@ export default function LoanDetailsPage() {
         </CardContent>
       </Card>
     </div>
+    </TooltipProvider>
   );
 }

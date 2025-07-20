@@ -90,12 +90,22 @@ export const addLoan = (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 
   return newLoan;
 };
 
+// This function now handles EMI recalculation for disbursed loans
 export const updateLoan = (updatedLoan: Loan): void => {
     const loans = getLoans();
     const index = loans.findIndex(l => l.id === updatedLoan.id);
     if(index !== -1) {
-        // If loan terms change before disbursal, we need to recalculate EMIs if it's disbursed later.
-        // The disburseLoan function already does this, so just updating is fine.
+        const oldLoan = loans[index];
+        // Check if a disbursed loan's terms have changed
+        const termsChanged = oldLoan.amount !== updatedLoan.amount || 
+                             oldLoan.interestRate !== updatedLoan.interestRate ||
+                             oldLoan.tenure !== updatedLoan.tenure;
+
+        if (updatedLoan.status === 'Disbursed' && termsChanged) {
+            // Recalculate EMIs. This will overwrite existing EMIs.
+            updatedLoan.emis = calculateEmis(updatedLoan);
+        }
+        
         loans[index] = updatedLoan;
         saveLoans(loans);
     }
@@ -118,10 +128,21 @@ export const disburseLoan = (loanId: string): Loan | null => {
 
     loan.status = 'Disbursed';
     loan.disbursalDate = new Date().toISOString();
+    loan.emis = calculateEmis(loan);
+    
+    updateLoan(loan);
+    return loan;
+}
 
+
+function calculateEmis(loan: Loan) {
     const principal = loan.amount;
     const monthlyInterestRate = loan.interestRate / 12 / 100;
     const tenureInMonths = loan.tenure;
+
+    if (principal <= 0 || monthlyInterestRate <= 0 || tenureInMonths <= 0) {
+        return [];
+    }
     
     // PMT formula for EMI calculation
     const emiAmount = (principal * monthlyInterestRate * Math.pow(1 + monthlyInterestRate, tenureInMonths)) / (Math.pow(1 + monthlyInterestRate, tenureInMonths) - 1);
@@ -145,7 +166,5 @@ export const disburseLoan = (loanId: string): Loan | null => {
             status: 'Pending' as const,
         });
     }
-    loan.emis = newEmis;
-    updateLoan(loan);
-    return loan;
+    return newEmis;
 }
