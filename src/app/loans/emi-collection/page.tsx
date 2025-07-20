@@ -49,7 +49,6 @@ export default function EmiCollectionPage() {
   const [whatsappPreview, setWhatsappPreview] = useState({ open: false, message: '' });
 
   const years = useMemo(() => {
-    // Just provide a range of years for simplicity
     const currentYear = getYear(new Date());
     return Array.from({ length: 10 }, (_, i) => currentYear - 5 + i).sort((a,b) => b-a);
   }, []);
@@ -64,7 +63,7 @@ export default function EmiCollectionPage() {
         const [loans, customers] = await Promise.all([getLoans(), getCustomers()]);
         
         const customersMap = new Map(customers.map(c => [c.id, c]));
-        const disbursedLoans = loans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
+        const disbursedLoans = loans.filter(l => l.status === 'Disbursed');
         
         const selectedMonth = getMonth(selectedDate);
         const selectedYear = getYear(selectedDate);
@@ -115,12 +114,18 @@ export default function EmiCollectionPage() {
 
   const handleCollectEmi = async (loanId: string, emiId: string) => {
     const loan = await getLoanById(loanId);
-    if (!loan) return;
+    if (!loan) {
+        toast({ title: 'Error', description: 'Loan not found.', variant: 'destructive' });
+        return;
+    }
 
     let collectedEmi: EMI | undefined;
     const emiIndex = loan.emis.findIndex(emi => emi.id === emiId);
 
-    if (emiIndex === -1) return;
+    if (emiIndex === -1) {
+        toast({ title: 'Error', description: 'EMI not found.', variant: 'destructive' });
+        return;
+    }
 
     const updatedEmis = loan.emis.map((emi, index) => {
         if (emi.id === emiId) {
@@ -138,19 +143,25 @@ export default function EmiCollectionPage() {
 
     const updatedLoan = { ...loan, emis: updatedEmis };
     
+    // Check if all EMIs are paid to close the loan
+    const allPaid = updatedLoan.emis.every(e => e.status === 'Paid');
+    if (allPaid) {
+        updatedLoan.status = 'Closed';
+    }
+    
     try {
         await updateLoan(updatedLoan);
         await fetchDueEmis(); // Refresh the list
         
         toast({
             title: 'EMI Collected!',
-            description: `Successfully collected ₹${collectedEmi?.amount} from ${loan.customerName}.`,
+            description: `Successfully collected ${collectedEmi?.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} from ${loan.customerName}.`,
         });
 
          if (collectedEmi) {
             setWhatsappPreview({
                 open: true,
-                message: `Dear ${loan.customerName}, your EMI payment of ₹${collectedEmi.amount} for loan ${loan.id} has been received. Thank you.`
+                message: `Dear ${loan.customerName}, your EMI payment of ${collectedEmi.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} for loan ${loan.id} has been received. Thank you.`
             });
         }
     } catch (error) {
@@ -172,7 +183,7 @@ export default function EmiCollectionPage() {
             emi.customer.phone,
             emi.customer.guarantorName,
             emi.customer.guarantorPhone,
-            `₹${emi.amount.toLocaleString()}`,
+            `Rs. ${emi.amount.toLocaleString()}`,
         ]
     });
 
@@ -180,7 +191,7 @@ export default function EmiCollectionPage() {
         startY: 30,
         head: [['Customer', 'Phone', 'Guarantor', 'Guarantor Phone', 'EMI Amount']],
         body: body,
-        foot: [[ {content: `Total Due: ₹${totalDueAmount.toLocaleString()}`, colSpan: 5, styles: { halign: 'right' } } ]],
+        foot: [[ {content: `Total Due: Rs. ${totalDueAmount.toLocaleString()}`, colSpan: 5, styles: { halign: 'right' } } ]],
         footStyles: { fontStyle: 'bold' },
         rowPageBreak: 'avoid',
     });
