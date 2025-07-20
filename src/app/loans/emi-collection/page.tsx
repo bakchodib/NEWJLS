@@ -12,12 +12,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Download, Wallet, MessageCircle } from 'lucide-react';
+import { Download, Wallet, MessageCircle, PiggyBank, BadgeCheck, Hourglass } from 'lucide-react';
 import { format, getYear, getMonth, setYear, setMonth } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface DueEmi extends EMI {
+interface MonthlyEmi extends EMI {
   loanId: string;
   customer: Customer;
 }
@@ -30,7 +30,7 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
             <div className="bg-white dark:bg-card rounded-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
                 <h3 className="font-bold text-lg mb-2 flex items-center gap-2"><MessageCircle className="text-green-500"/>WhatsApp Preview</h3>
                 <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md text-sm">
-                    <p className="font-bold">FinanceFlow Bot</p>
+                    <p className="font-bold">JLS FINACE LTD Bot</p>
                     <p>{message}</p>
                 </div>
                 <Button className="w-full mt-4" onClick={() => onOpenChange(false)}>Close</Button>
@@ -40,7 +40,7 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
 }
 
 export default function EmiCollectionPage() {
-  const [dueEmis, setDueEmis] = useState<DueEmi[]>([]);
+  const [monthlyEmis, setMonthlyEmis] = useState<MonthlyEmi[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const { role, loading } = useAuth();
@@ -57,34 +57,34 @@ export default function EmiCollectionPage() {
       return Array.from({length: 12}, (_, i) => ({ value: i, name: format(new Date(2000, i), 'MMMM')}))
   }, []);
 
-  const fetchDueEmis = useCallback(async () => {
+  const fetchMonthlyEmis = useCallback(async () => {
     try {
         setIsLoading(true);
         const [loans, customers] = await Promise.all([getLoans(), getCustomers()]);
         
         const customersMap = new Map(customers.map(c => [c.id, c]));
-        const disbursedLoans = loans.filter(l => l.status === 'Disbursed');
+        const disbursedLoans = loans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
         
         const selectedMonth = getMonth(selectedDate);
         const selectedYear = getYear(selectedDate);
 
-        const monthlyDueEmis: DueEmi[] = [];
+        const allMonthlyEmis: MonthlyEmi[] = [];
 
         disbursedLoans.forEach(loan => {
             const customer = customersMap.get(loan.customerId);
             if (!customer) return;
 
             loan.emis.forEach(emi => {
-            const dueDate = new Date(emi.dueDate);
-            if (emi.status === 'Pending' && getMonth(dueDate) === selectedMonth && getYear(dueDate) === selectedYear) {
-                monthlyDueEmis.push({ ...emi, loanId: loan.id, customer });
-            }
+                const dueDate = new Date(emi.dueDate);
+                if (getMonth(dueDate) === selectedMonth && getYear(dueDate) === selectedYear) {
+                    allMonthlyEmis.push({ ...emi, loanId: loan.id, customer });
+                }
             });
         });
 
-        setDueEmis(monthlyDueEmis.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
+        setMonthlyEmis(allMonthlyEmis.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
     } catch(error) {
-        toast({ title: 'Error', description: 'Failed to fetch due EMIs.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to fetch EMIs for the month.', variant: 'destructive' });
     } finally {
         setIsLoading(false);
     }
@@ -96,13 +96,26 @@ export default function EmiCollectionPage() {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
     } else {
-      fetchDueEmis();
+      fetchMonthlyEmis();
     }
-  }, [role, loading, router, toast, fetchDueEmis]);
+  }, [role, loading, router, toast, fetchMonthlyEmis]);
+  
+  const { totalAmount, collectedAmount, pendingAmount, pendingEmis } = useMemo(() => {
+    const stats = monthlyEmis.reduce((acc, emi) => {
+        acc.totalAmount += emi.amount;
+        if (emi.status === 'Paid') {
+            acc.collectedAmount += emi.amount;
+        } else {
+            acc.pendingAmount += emi.amount;
+        }
+        return acc;
+    }, { totalAmount: 0, collectedAmount: 0, pendingAmount: 0 });
 
-  const totalDueAmount = useMemo(() => {
-    return dueEmis.reduce((acc, emi) => acc + emi.amount, 0);
-  }, [dueEmis]);
+    const pending = monthlyEmis.filter(emi => emi.status === 'Pending');
+    
+    return { ...stats, pendingEmis: pending };
+  }, [monthlyEmis]);
+
 
   const handleMonthChange = (monthValue: string) => {
     setSelectedDate(current => setMonth(current, parseInt(monthValue, 10)));
@@ -143,7 +156,6 @@ export default function EmiCollectionPage() {
 
     const updatedLoan = { ...loan, emis: updatedEmis };
     
-    // Check if all EMIs are paid to close the loan
     const allPaid = updatedLoan.emis.every(e => e.status === 'Paid');
     if (allPaid) {
         updatedLoan.status = 'Closed';
@@ -151,7 +163,7 @@ export default function EmiCollectionPage() {
     
     try {
         await updateLoan(updatedLoan);
-        await fetchDueEmis(); // Refresh the list
+        await fetchMonthlyEmis(); 
         
         toast({
             title: 'EMI Collected!',
@@ -175,9 +187,9 @@ export default function EmiCollectionPage() {
     const monthName = format(selectedDate, 'MMMM yyyy');
 
     doc.setFontSize(12);
-    doc.text(`EMI Due Report - ${monthName}`, 14, 22);
+    doc.text(`Pending EMI Report - ${monthName}`, 14, 22);
 
-    const body = dueEmis.map((emi) => {
+    const body = pendingEmis.map((emi) => {
         return [
             emi.customer.name,
             emi.customer.phone,
@@ -191,12 +203,12 @@ export default function EmiCollectionPage() {
         startY: 30,
         head: [['Customer', 'Phone', 'Guarantor', 'Guarantor Phone', 'EMI Amount']],
         body: body,
-        foot: [[ {content: `Total Due: Rs. ${totalDueAmount.toLocaleString()}`, colSpan: 5, styles: { halign: 'right' } } ]],
+        foot: [[ {content: `Total Due: Rs. ${pendingAmount.toLocaleString()}`, colSpan: 5, styles: { halign: 'right' } } ]],
         footStyles: { fontStyle: 'bold' },
         rowPageBreak: 'avoid',
     });
     
-    doc.save(`emi_due_report_${monthName.toLowerCase().replace(' ', '_')}.pdf`);
+    doc.save(`pending_emi_report_${monthName.toLowerCase().replace(' ', '_')}.pdf`);
   }
 
   const renderSkeleton = () => (
@@ -221,13 +233,47 @@ export default function EmiCollectionPage() {
         onOpenChange={(open) => setWhatsappPreview({ open, message: '' })} 
         message={whatsappPreview.message}
       />
+
+       <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Due This Month</CardTitle>
+              <PiggyBank className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{totalAmount.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Sum of all EMIs for {format(selectedDate, 'MMMM')}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Collected Amount</CardTitle>
+              <BadgeCheck className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{collectedAmount.toLocaleString()}</div>
+               <p className="text-xs text-muted-foreground">{Math.round((collectedAmount/totalAmount || 0) * 100)}% collected</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
+              <Hourglass className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{pendingAmount.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">{pendingEmis.length} EMIs to be collected</p>
+            </CardContent>
+          </Card>
+        </div>
+
       <Card>
         <CardHeader>
             <div className="flex justify-between items-start flex-wrap gap-4">
                 <div>
-                    <CardTitle>EMI Collection for {format(selectedDate, 'MMMM yyyy')}</CardTitle>
+                    <CardTitle>Pending Collections for {format(selectedDate, 'MMMM yyyy')}</CardTitle>
                     <CardDescription>
-                        A list of all EMIs due this month. Total due: <span className="font-bold">₹{totalDueAmount.toLocaleString()}</span>
+                        A list of all EMIs still pending for this month.
                     </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -251,7 +297,7 @@ export default function EmiCollectionPage() {
                             ))}
                         </SelectContent>
                     </Select>
-                    <Button onClick={generateReportPDF} disabled={dueEmis.length === 0}>
+                    <Button onClick={generateReportPDF} disabled={pendingEmis.length === 0}>
                         <Download className="mr-2 h-4 w-4" />
                         Download Report
                     </Button>
@@ -269,8 +315,8 @@ export default function EmiCollectionPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? renderSkeleton() : dueEmis.length > 0 ? (
-                dueEmis.map((emi) => (
+              {isLoading ? renderSkeleton() : pendingEmis.length > 0 ? (
+                pendingEmis.map((emi) => (
                   <TableRow key={emi.id}>
                     <TableCell className="font-medium">
                         <div>{emi.customer.name}</div>
