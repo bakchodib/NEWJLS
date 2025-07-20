@@ -13,7 +13,8 @@ import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Download } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, getYear, getMonth, setYear, setMonth } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface DueEmi extends EMI {
   loanId: string;
@@ -22,9 +23,24 @@ interface DueEmi extends EMI {
 
 export default function EmiCollectionPage() {
   const [dueEmis, setDueEmis] = useState<DueEmi[]>([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const { role, loading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+
+  const years = useMemo(() => {
+    const allLoans = getLoans();
+    const allEmis = allLoans.flatMap(l => l.emis);
+    const loanYears = new Set(allEmis.map(emi => getYear(new Date(emi.dueDate))));
+    if (!loanYears.has(getYear(new Date()))) {
+        loanYears.add(getYear(new Date()));
+    }
+    return Array.from(loanYears).sort((a, b) => b - a);
+  }, []);
+
+  const months = useMemo(() => {
+      return Array.from({length: 12}, (_, i) => ({ value: i, name: format(new Date(2000, i), 'MMMM')}))
+  }, []);
 
   useEffect(() => {
     if (!loading && (role !== 'admin' && role !== 'agent')) {
@@ -34,9 +50,8 @@ export default function EmiCollectionPage() {
       const loans = getLoans().filter(l => l.status === 'Disbursed');
       const customers = getCustomers();
       
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
+      const selectedMonth = getMonth(selectedDate);
+      const selectedYear = getYear(selectedDate);
 
       const monthlyDueEmis: DueEmi[] = [];
 
@@ -46,23 +61,31 @@ export default function EmiCollectionPage() {
 
         loan.emis.forEach(emi => {
           const dueDate = new Date(emi.dueDate);
-          if (emi.status === 'Pending' && dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear) {
+          if (emi.status === 'Pending' && getMonth(dueDate) === selectedMonth && getYear(dueDate) === selectedYear) {
             monthlyDueEmis.push({ ...emi, loanId: loan.id, customer });
           }
         });
       });
 
-      setDueEmis(monthlyDueEmis);
+      setDueEmis(monthlyDueEmis.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
     }
-  }, [role, loading, router, toast]);
+  }, [role, loading, router, toast, selectedDate]);
 
   const totalDueAmount = useMemo(() => {
     return dueEmis.reduce((acc, emi) => acc + emi.amount, 0);
   }, [dueEmis]);
 
+  const handleMonthChange = (monthValue: string) => {
+    setSelectedDate(current => setMonth(current, parseInt(monthValue, 10)));
+  }
+
+  const handleYearChange = (yearValue: string) => {
+    setSelectedDate(current => setYear(current, parseInt(yearValue, 10)));
+  }
+
   const generateReportPDF = () => {
     const doc = new jsPDF();
-    const monthName = format(new Date(), 'MMMM yyyy');
+    const monthName = format(selectedDate, 'MMMM yyyy');
     
     doc.setFontSize(18);
     doc.text(`EMI Due Report - ${monthName}`, 14, 22);
@@ -72,9 +95,9 @@ export default function EmiCollectionPage() {
         head: [['Customer', 'Phone', 'Guarantor', 'Guarantor Phone', 'EMI Amount']],
         body: dueEmis.map(emi => [
             emi.customer.name,
-            { content: emi.customer.phone, styles: { textColor: [0, 0, 255] }, url: `tel:${emi.customer.phone}` },
+            emi.customer.phone,
             emi.customer.guarantorName,
-            { content: emi.customer.guarantorPhone, styles: { textColor: [0, 0, 255] }, url: `tel:${emi.customer.guarantorPhone}` },
+            emi.customer.guarantorPhone,
             `₹${emi.amount.toLocaleString()}`,
         ]),
         foot: [[`Total Due: ₹${totalDueAmount.toLocaleString()}`, '', '', '', '']],
@@ -92,17 +115,39 @@ export default function EmiCollectionPage() {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-start flex-wrap gap-4">
                 <div>
-                    <CardTitle>EMI Collection for {format(new Date(), 'MMMM yyyy')}</CardTitle>
+                    <CardTitle>EMI Collection for {format(selectedDate, 'MMMM yyyy')}</CardTitle>
                     <CardDescription>
                         A list of all EMIs due this month. Total due: <span className="font-bold">₹{totalDueAmount.toLocaleString()}</span>
                     </CardDescription>
                 </div>
-                <Button onClick={generateReportPDF}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Report
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Select value={String(getMonth(selectedDate))} onValueChange={handleMonthChange}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {months.map(month => (
+                                <SelectItem key={month.value} value={String(month.value)}>{month.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select value={String(getYear(selectedDate))} onValueChange={handleYearChange}>
+                        <SelectTrigger className="w-[120px]">
+                            <SelectValue placeholder="Select Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {years.map(year => (
+                                <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Button onClick={generateReportPDF} disabled={dueEmis.length === 0}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Report
+                    </Button>
+                </div>
             </div>
         </CardHeader>
         <CardContent>
@@ -136,7 +181,7 @@ export default function EmiCollectionPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center">
-                    No EMIs due for the current month.
+                    No EMIs due for {format(selectedDate, 'MMMM yyyy')}.
                   </TableCell>
                 </TableRow>
               )}
