@@ -157,11 +157,12 @@ export default function DashboardPage() {
                 const today = new Date();
                 const nextWeek = new Date();
                 nextWeek.setDate(today.getDate() + 7);
+                const disbursedLoans = loans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
 
                 dashboardStats = {
                     totalCustomers: customers.length,
-                    totalLoans: loans.length,
-                    totalDisbursed: loans.reduce((acc, loan) => acc + loan.amount, 0),
+                    totalLoans: disbursedLoans.length,
+                    totalDisbursed: disbursedLoans.reduce((acc, loan) => acc + loan.amount, 0),
                     overdueEmis: allEmis.filter(emi => emi.status === 'Pending' && new Date(emi.dueDate) < now).length,
                     upcomingEmis: allEmis.filter(emi => emi.status === 'Pending' && new Date(emi.dueDate) >= today && new Date(emi.dueDate) <= nextWeek).length
                 };
