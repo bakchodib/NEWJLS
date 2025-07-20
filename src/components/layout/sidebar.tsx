@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -93,7 +94,7 @@ export function Sidebar() {
     if (item.subItems) {
       return item.subItems.some(sub => pathname.startsWith(sub.href));
     }
-    if (item.href === '/dashboard') {
+    if (item.href === '/dashboard' || item.href === '/users') {
         return pathname === item.href;
     }
     return pathname.startsWith(item.href);
