@@ -39,18 +39,32 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
 // Helper: Load image as Base64
 function loadImage(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    // Attempt to use the direct Base64 URI if available
+    if (url.startsWith('data:image')) {
+        resolve(url);
+        return;
+    }
+    
+    // Fallback to fetching if it's a URL
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    img.crossOrigin = "anonymous"; // This is important for fetching from other domains
     img.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = img.width;
       canvas.height = img.height;
-      canvas.getContext("2d")?.drawImage(img, 0, 0);
-      const dataUrl = canvas.toDataURL("image/jpeg");
-      resolve(dataUrl);
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(img, 0, 0);
+      try {
+        const dataUrl = canvas.toDataURL("image/jpeg");
+        resolve(dataUrl);
+      } catch (e) {
+        reject(new Error("Failed to convert image to data URL."));
+      }
     };
-    img.onerror = (error) => reject(error);
-    img.src = url;
+    img.onerror = () => reject(new Error('Failed to load image.'));
+    
+    // Use a CORS proxy for external images to avoid tainted canvas issues
+    img.src = `https://cors-anywhere.herokuapp.com/${url}`;
   });
 }
 
@@ -230,188 +244,161 @@ export default function LoanDetailsPage() {
   };
 
 
-  const generateLoanAgreementPDF = async () => {
-    if(!loan || !customer) return;
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 15;
+async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList: EMI[]) {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let y: number;
 
-    // 1. Header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("JLS FINANCE LTD", pageWidth / 2, y, { align: 'center' });
-    y += 7;
-    doc.setFontSize(12);
-    doc.text("Loan Agreement Document", pageWidth / 2, y, { align: 'center' });
-    y += 5;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(new Date().toLocaleDateString(), pageWidth - 15, y, { align: 'right' });
-    y += 5;
-    doc.setLineWidth(0.5);
-    doc.line(15, y, pageWidth - 15, y);
-    y += 10;
-    
-    // 2. Borrower Details
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("Borrower Details", 15, y);
-    y += 7;
+  // Page 1 Header
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("JLS FINANCE LTD", 105, 15, { align: "center" });
+  doc.setFontSize(13);
+  doc.text("Loan Agreement Document", 105, 23, { align: "center" });
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 30);
+  doc.setLineWidth(0.5);
+  doc.line(15, 32, pageWidth - 15, 32);
 
-    if (customer.customerPhoto) {
-        try {
-            doc.addImage(customer.customerPhoto, 'JPEG', pageWidth - 15 - 40, y - 5, 40, 40);
-        } catch(e) {
-            console.error("Error adding image to PDF:", e);
-        }
+  // Customer Photo (top-right)
+  if (customer.customerPhoto) {
+    try {
+      const image = await loadImage(customer.customerPhoto);
+      doc.addImage(image, "JPEG", 150, 35, 40, 40);
+    } catch {
+      doc.text("(Photo not loaded)", 150, 45);
     }
-    
-    const borrowerDetails = [
+  }
+
+  y = 40;
+  // Borrower Info with autoTable for clean alignment
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Borrower Details", 15, y);
+  y += 5;
+  autoTable(doc, {
+    startY: y,
+    body: [
         ["Full Name:", customer.name],
         ["Phone Number:", customer.phone],
         ["Aadhar Number:", customer.aadharNumber],
-        ["Address:", customer.address]
-    ];
-    autoTable(doc, {
-        startY: y,
-        body: borrowerDetails,
-        theme: 'plain',
-        tableWidth: 120,
-        styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
-        columnStyles: { 0: { fontStyle: 'bold' } }
-    });
-    y = (doc as any).lastAutoTable.finalY + 10;
-    
-    // 3. Guarantor Details
-    doc.setFont("helvetica", "bold");
-    doc.text("Guarantor Details", 15, y);
-    y += 7;
-    const guarantorDetails = [
+        ["Address:", customer.address],
+    ],
+    theme: 'plain',
+    tableWidth: 120,
+    styles: { fontSize: 10, cellPadding: 1.5, font: 'helvetica' },
+    columnStyles: { 0: { fontStyle: 'bold' } },
+  });
+  y = (doc as any).lastAutoTable.finalY + 5;
+  
+  // Guarantor Info
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Guarantor Details", 15, y);
+  y += 5;
+  autoTable(doc, {
+    startY: y,
+    body: [
         ["Full Name:", customer.guarantorName],
         ["Phone Number:", customer.guarantorPhone],
-        ["Relationship:", "N/A"] // As per type, not available
-    ];
-    autoTable(doc, {
-        startY: y,
-        body: guarantorDetails,
-        theme: 'plain',
-        styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
-        columnStyles: { 0: { fontStyle: 'bold' } }
-    });
-    y = (doc as any).lastAutoTable.finalY + 10;
+        ["Relationship:", "N/A"], // This data isn't in the types
+    ],
+    theme: 'plain',
+    tableWidth: 120,
+    styles: { fontSize: 10, cellPadding: 1.5, font: 'helvetica' },
+    columnStyles: { 0: { fontStyle: 'bold' } },
+  });
+  y = (doc as any).lastAutoTable.finalY + 5;
 
-    // 4. Loan Information
-    doc.setFont("helvetica", "bold");
-    doc.text("Loan Information", 15, y);
-    y += 7;
-    const processingFeeAmount = loan.amount * (loan.processingFee / 100);
-    const netDisbursed = loan.amount - processingFeeAmount;
-    const loanInfo = [
+
+  // Loan Info
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Loan Information", 15, y);
+  y += 5;
+  const processingFeeAmount = loan.amount * (loan.processingFee / 100);
+  const netDisbursed = loan.amount - processingFeeAmount;
+  autoTable(doc, {
+    startY: y,
+    body: [
         ["Loan ID:", loan.id],
-        ["Sanctioned Amount:", `₹${loan.amount.toLocaleString()}`],
-        ["Processing Fee:", `${loan.processingFee}% (₹${processingFeeAmount.toLocaleString()})`],
-        ["Net Disbursed Amount:", `₹${netDisbursed.toLocaleString()}`],
+        ["Sanctioned Amount:", `\u20B9${formatCurrency(loan.amount)}`],
+        ["Processing Fee:", `${loan.processingFee}% (\u20B9${formatCurrency(processingFeeAmount)})`],
+        ["Net Disbursed Amount:", `\u20B9${formatCurrency(netDisbursed)}`],
         ["Interest Rate:", `${loan.interestRate}% p.a.`],
         ["Tenure:", `${loan.tenure} months`],
-        ["Disbursal Date:", new Date(loan.disbursalDate).toLocaleDateString()]
-    ];
-    autoTable(doc, {
-        startY: y,
-        body: loanInfo,
-        theme: 'plain',
-        styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
-        columnStyles: { 0: { fontStyle: 'bold' } }
-    });
-    y = (doc as any).lastAutoTable.finalY + 10;
-    
-    // 5. Top-up History (if exists) - Not implemented in current types, showing placeholder
-    if (loan.history && loan.history.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.text("Top-up History", 15, y);
-        y += 7;
-        loan.history.forEach(topup => {
-            const topupText = `✓ ${new Date(topup.date).toLocaleDateString()} → ₹${topup.amount.toLocaleString()}`;
-            doc.setFont("helvetica", "normal");
-            doc.text(topupText, 15, y);
-            y += 7;
-        });
-        y += 3;
-    }
-    
-    // Terms & Conditions
-    doc.addPage();
-    y = 15;
-    doc.setFont("helvetica", "bold");
-    doc.text("Terms and Conditions", 15, y);
-    y += 7;
-    doc.setFont("helvetica", "normal");
-    const terms = [
-      "1. Loan amount must be used only for declared purpose.",
-      "2. Repayment shall be in fixed EMIs as per schedule.",
-      "3. Interest is charged on reducing balance basis.",
-      "4. Processing fee of 5% is non-refundable.",
-      "5. Late payments may incur penalties.",
-      "6. Early closure allowed with full dues & charges.",
-      "7. Top-up eligibility is subject to repayment history.",
-      "8. Guarantor shares legal liability on default.",
-      "9. Data will be kept secure and used officially.",
-      "10. Disputes fall under [Rajasthan] jurisdiction."
-    ];
-    
-    const splitTerms = terms.map(term => doc.splitTextToSize(term, pageWidth - 30));
-    splitTerms.flat().forEach(line => {
-        if (y > doc.internal.pageSize.getHeight() - 30) {
-            doc.addPage();
-            y = 15;
-        }
-        doc.text(line, 15, y);
-        y += 5;
-    });
-    
-    y += 10;
-    
-    // 6. EMI Schedule Summary
-    doc.setFont("helvetica", "bold");
-    doc.text("EMI Schedule Summary", 15, y);
-    y += 7;
-    autoTable(doc, {
-        startY: y,
-        head: [['Installment No', 'Due Date', 'EMI Amount', 'Status']],
-        body: loan.emis.map((emi, index) => [
-            index + 1,
-            new Date(emi.dueDate).toLocaleDateString(),
-            `₹${emi.amount.toLocaleString()}`,
-            emi.status
-        ]),
-        theme: 'grid',
-        headStyles: { fillColor: [46, 71, 101] },
-        didDrawPage: (data) => {
-            if (data.pageNumber > 1) { // If table spans multiple pages
-                y = data.cursor?.y ?? 15;
-            } else {
-                 y = (doc as any).lastAutoTable.finalY + 20;
-            }
-        }
-    });
-    y = (doc as any).lastAutoTable.finalY + 20;
+        ["Disbursal Date:", new Date(loan.disbursalDate).toLocaleDateString()],
+    ],
+    theme: 'plain',
+    tableWidth: 120,
+    styles: { fontSize: 10, cellPadding: 1.5, font: 'helvetica' },
+    columnStyles: { 0: { fontStyle: 'bold' } },
+  });
+  y = (doc as any).lastAutoTable.finalY + 10;
+  
+  // Terms & Conditions
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("Terms and Conditions", 15, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const terms = [
+    "1. Loan amount must be used only for declared purpose.",
+    "2. Repayment shall be in fixed EMIs as per schedule.",
+    "3. Interest is charged on reducing balance basis.",
+    "4. Processing fee is non-refundable.",
+    "5. Late payments may incur penalties.",
+    "6. Early closure allowed with full dues & charges.",
+    "7. Top-up eligibility is subject to repayment history.",
+    "8. Guarantor shares legal liability on default.",
+    "9. Data will be kept secure and used officially.",
+    "10. Disputes fall under [Rajasthan] jurisdiction."
+  ];
 
+  const splitTerms = terms.map(term => doc.splitTextToSize(term, pageWidth - 30));
+  splitTerms.flat().forEach(line => {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 15;
+      }
+      doc.text(line, 15, y);
+      y += 5;
+  });
 
-    if (y > doc.internal.pageSize.getHeight() - 50) {
-        doc.addPage();
-        y = 20;
-    }
+  // Page 2: EMI Summary
+  doc.addPage();
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text("EMI Schedule Summary", 105, 20, { align: "center" });
 
-    // 7. Signatures
-    doc.setFont("helvetica", "normal");
-    const signatureY = doc.internal.pageSize.getHeight() - 40;
-    doc.line(15, signatureY, 85, signatureY);
-    doc.text("Customer Signature", 15, signatureY + 5);
+  const emiTable = emiList.map((emi, i) => [
+    `${i + 1}`,
+    new Date(emi.dueDate).toLocaleDateString(),
+    `\u20B9${formatCurrency(emi.amount)}`,
+    emi.status,
+  ]);
 
-    doc.line(pageWidth - 85, signatureY, pageWidth - 15, signatureY);
-    doc.text("Guarantor Signature", pageWidth - 85, signatureY + 5);
-    
-    doc.save(`loan_agreement_${loan.id}.pdf`);
-  };
+  autoTable(doc, {
+    startY: 30,
+    head: [["#", "Due Date", "EMI Amount", "Status"]],
+    body: emiTable,
+    styles: { fontSize: 9 },
+    theme: "grid",
+    headStyles: { fillColor: [46, 71, 101], textColor: 255 },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+  });
+
+  const lastY = (doc as any).lastAutoTable.finalY + 20;
+  doc.setFont("helvetica", "normal");
+  doc.text("_____________________", 20, lastY);
+  doc.text("Customer Signature", 20, lastY + 6);
+  doc.text("_____________________", 130, lastY);
+  doc.text("Guarantor Signature", 130, lastY + 6);
+
+  doc.save(`Loan_Agreement_${loan.id}.pdf`);
+}
 
 
   const generateEmiReceiptPDF = async (emi: EMI) => {
@@ -530,7 +517,7 @@ export default function LoanDetailsPage() {
             </div>
              <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => generateLoanCardPDF(customer, loan, loan.emis)}>Loan Card</Button>
-                <Button variant="outline" size="sm" onClick={generateLoanAgreementPDF}>Loan Agreement</Button>
+                <Button variant="outline" size="sm" onClick={() => generateLoanAgreementPDF(customer, loan, loan.emis)}>Loan Agreement</Button>
                 {role === 'admin' && (
                      <Tooltip>
                         <TooltipTrigger asChild>
