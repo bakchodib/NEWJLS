@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/contexts/auth-context';
 import { getCustomers, getLoans } from '@/lib/storage';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { Customer, Loan, EMI } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Landmark, DollarSign, AlertCircle, CheckCircle, Hourglass } from 'lucide-react';
@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 const AdminDashboard = ({ stats }: { stats: any }) => (
   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -143,54 +144,62 @@ export default function DashboardPage() {
   const { role, loading } = useAuth();
   const [stats, setStats] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-        try {
-            const customers = await getCustomers();
-            const loans = await getLoans();
-            const allEmis = loans.flatMap(l => l.emis);
-            const now = new Date();
-            
-            let dashboardStats = {};
+  // By using pathname, this effect will re-run on navigation to this page.
+  const pathname = usePathname();
+  const searchParams = useSearchParams(); // Also watch for query param changes
 
-            if (role === 'admin' || role === 'agent') {
-                const today = new Date();
-                const nextWeek = new Date();
-                nextWeek.setDate(today.getDate() + 7);
-                const disbursedLoans = loans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
+  const fetchStats = useCallback(async () => {
+    try {
+        setStats(null); // Set to null to show skeleton while fetching
+        const customers = await getCustomers();
+        const loans = await getLoans();
+        const allEmis = loans.flatMap(l => l.emis);
+        const now = new Date();
+        
+        let dashboardStats = {};
 
-                dashboardStats = {
-                    totalCustomers: customers.length,
-                    totalLoans: disbursedLoans.length,
-                    totalDisbursed: disbursedLoans.reduce((acc, loan) => acc + loan.amount, 0),
-                    overdueEmis: allEmis.filter(emi => emi.status === 'Pending' && new Date(emi.dueDate) < now).length,
-                    upcomingEmis: allEmis.filter(emi => emi.status === 'Pending' && new Date(emi.dueDate) >= today && new Date(emi.dueDate) <= nextWeek).length
-                };
-            } else if (role === 'customer') {
-                // In a real app, you'd filter by customer ID. Here we just show all loans for simplicity.
-                const customerLoans = loans;
-                const activeLoans = customerLoans.filter(l => l.emis.some(e => e.status === 'Pending'));
-                const outstandingEmis = activeLoans.flatMap(l => l.emis).filter(e => e.status === 'Pending');
-                const nextEmi = outstandingEmis.sort((a,b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
-                
-                dashboardStats = {
-                    activeLoans: activeLoans.length,
-                    totalOutstanding: outstandingEmis.reduce((acc, emi) => acc + emi.amount, 0),
-                    nextEmiDate: nextEmi ? format(new Date(nextEmi.dueDate), 'dd-MM-yyyy') : 'N/A',
-                    nextEmiAmount: nextEmi ? nextEmi.amount : 0,
-                };
-            }
+        if (role === 'admin' || role === 'agent') {
+            const today = new Date();
+            const nextWeek = new Date();
+            nextWeek.setDate(today.getDate() + 7);
+            const disbursedLoans = loans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
             
-            setStats(dashboardStats);
-        } catch (error) {
-            console.error("Failed to fetch dashboard stats:", error);
+            const allPendingEmis = disbursedLoans.flatMap(loan => loan.emis.filter(emi => emi.status === 'Pending'));
+
+            dashboardStats = {
+                totalCustomers: customers.length,
+                totalLoans: disbursedLoans.length,
+                totalDisbursed: disbursedLoans.reduce((acc, loan) => acc + loan.amount, 0),
+                overdueEmis: allPendingEmis.filter(emi => new Date(emi.dueDate) < now).length,
+                upcomingEmis: allPendingEmis.filter(emi => new Date(emi.dueDate) >= today && new Date(emi.dueDate) <= nextWeek).length
+            };
+        } else if (role === 'customer') {
+            // In a real app, you'd filter by customer ID. Here we just show all loans for simplicity.
+            const customerLoans = loans;
+            const activeLoans = customerLoans.filter(l => l.emis.some(e => e.status === 'Pending'));
+            const outstandingEmis = activeLoans.flatMap(l => l.emis).filter(e => e.status === 'Pending');
+            const nextEmi = outstandingEmis.sort((a,b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+            
+            dashboardStats = {
+                activeLoans: activeLoans.length,
+                totalOutstanding: outstandingEmis.reduce((acc, emi) => acc + emi.amount, 0),
+                nextEmiDate: nextEmi ? format(new Date(nextEmi.dueDate), 'dd-MM-yyyy') : 'N/A',
+                nextEmiAmount: nextEmi ? nextEmi.amount : 0,
+            };
         }
-    };
-    
-    if (!loading) {
+        
+        setStats(dashboardStats);
+    } catch (error) {
+        console.error("Failed to fetch dashboard stats:", error);
+    }
+  }, [role]);
+
+  useEffect(() => {
+    if (!loading && role) {
         fetchStats();
     }
-  }, [role, loading]);
+  }, [role, loading, fetchStats, pathname, searchParams]);
+
 
   if (!stats) return <DashboardSkeleton />;
 
