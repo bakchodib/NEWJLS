@@ -12,14 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BadgeCheck, XCircle, Hourglass, ChevronsRight, Pencil, Trash2, CalendarIcon } from 'lucide-react';
+import { BadgeCheck, XCircle, Hourglass, ChevronsRight, Pencil, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getDaysInMonth, getYear, getMonth, getDate, setYear, setMonth, setDate, format } from 'date-fns';
 
 export default function LoanApplicationsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -29,7 +27,7 @@ export default function LoanApplicationsPage() {
   const router = useRouter();
   
   const [disburseLoanId, setDisburseLoanId] = useState<string | null>(null);
-  const [disbursalDate, setDisbursalDate] = useState<Date | undefined>(new Date());
+  const [disbursalDate, setDisbursalDate] = useState<Date>(new Date());
 
   const fetchLoans = async () => {
     try {
@@ -102,6 +100,37 @@ export default function LoanApplicationsPage() {
 
   if (loading || role !== 'admin') {
     return <div>Loading...</div>;
+  }
+  
+  const DateSelector = () => {
+      const currentYear = getYear(new Date());
+      const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
+      const months = Array.from({ length: 12 }, (_, i) => ({ value: i, name: format(new Date(2000, i), 'MMMM')}));
+      const daysInSelectedMonth = getDaysInMonth(disbursalDate);
+      const days = Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1);
+
+      return (
+        <div className="flex justify-center gap-4">
+            <Select value={String(getDate(disbursalDate))} onValueChange={(day) => setDisbursalDate(d => setDate(d, parseInt(day)))}>
+                <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
+                <SelectContent>
+                    {days.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                </SelectContent>
+            </Select>
+            <Select value={String(getMonth(disbursalDate))} onValueChange={(month) => setDisbursalDate(d => setMonth(d, parseInt(month)))}>
+                <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
+                <SelectContent>
+                    {months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+            <Select value={String(getYear(disbursalDate))} onValueChange={(year) => setDisbursalDate(d => setYear(d, parseInt(year)))}>
+                <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                <SelectContent>
+                    {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                </SelectContent>
+            </Select>
+        </div>
+      );
   }
 
   const LoanTable = ({ loans, type }: { loans: Loan[], type: 'Pending' | 'Approved' | 'Rejected' }) => (
@@ -228,28 +257,7 @@ export default function LoanApplicationsPage() {
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 flex justify-center">
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-[280px] justify-start text-left font-normal",
-                            !disbursalDate && "text-muted-foreground"
-                          )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {disbursalDate ? format(disbursalDate, "dd-MM-yyyy") : <span>Pick a date</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={disbursalDate}
-                          onSelect={setDisbursalDate}
-                          initialFocus
-                        />
-                    </PopoverContent>
-                </Popover>
+                <DateSelector />
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setDisburseLoanId(null)}>Cancel</Button>
