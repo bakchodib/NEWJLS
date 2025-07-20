@@ -72,6 +72,8 @@ export default function LoanDetailsPage() {
   };
 
   const imageToDataUrl = async (url: string): Promise<string | null> => {
+    if (!url) return null;
+    // Use a CORS proxy to fetch images from other origins like imgbb
     try {
         const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
         if (!response.ok) throw new Error(`Image fetch failed for ${url}`);
@@ -163,20 +165,20 @@ export default function LoanDetailsPage() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14;
 
-    const addHeader = (page: number) => {
+    const addHeader = (pageNumber: number) => {
         if(logoDataUrl){
-            doc.addImage(logoDataUrl, 'PNG', margin, margin-4, 10, 10);
+            doc.addImage(logoDataUrl, 'PNG', margin, margin - 4, 10, 10);
         }
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text('FinanceFlow Inc. - Loan Agreement', margin + 12, margin);
-        doc.line(margin, margin + 2, pageWidth - margin, margin + 2);
+        doc.text('FinanceFlow Inc.', margin + 12, margin + 2);
+        doc.line(margin, margin + 8, pageWidth - margin, margin + 8);
     };
 
-    const addFooter = (page: number) => {
+    const addFooter = (pageNumber: number) => {
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Page ${page}`, pageWidth - margin, pageHeight - margin, { align: 'right' });
+        doc.text(`Page ${pageNumber}`, pageWidth - margin, pageHeight - margin, { align: 'right' });
         doc.line(margin, pageHeight - margin - 2, pageWidth - margin, pageHeight - margin - 2);
     };
 
@@ -185,15 +187,15 @@ export default function LoanDetailsPage() {
 
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('Private & Confidential Loan Agreement', pageWidth / 2, 35, { align: 'center' });
+    doc.text('Private & Confidential Loan Agreement', pageWidth / 2, 40, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Loan ID: ${loan.id}`, margin, 45);
-    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, pageWidth - margin, 45, { align: 'right' });
+    doc.text(`Loan ID: ${loan.id}`, margin, 50);
+    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, pageWidth - margin, 50, { align: 'right' });
 
     if(photoDataUrl) {
-        doc.addImage(photoDataUrl, 'PNG', pageWidth - margin - 40, 55, 40, 40);
+        doc.addImage(photoDataUrl, 'PNG', pageWidth - margin - 30, 55, 25, 25);
     }
     
     // Parties
@@ -258,13 +260,13 @@ export default function LoanDetailsPage() {
     page2Y += 8;
 
     const addTerm = (termNumber: number, termText: string) => {
-        if (page2Y > pageHeight - 30) {
+        const splitText = doc.splitTextToSize(`${termNumber}. ${termText}`, pageWidth - (margin * 2) - 5);
+        if (page2Y + (splitText.length * 4) + 4 > pageHeight - 40) { // check if it fits
             addFooter(doc.internal.pages.length);
             doc.addPage();
             addHeader(doc.internal.pages.length);
             page2Y = 30;
         }
-        const splitText = doc.splitTextToSize(`${termNumber}. ${termText}`, pageWidth - (margin * 2) - 5);
         doc.text(splitText, margin + 5, page2Y);
         page2Y += (splitText.length * 4) + 4;
     }
@@ -281,24 +283,38 @@ export default function LoanDetailsPage() {
     addTerm(10, 'Entire Agreement: This document, along with the loan application, KYC documents, and EMI schedule, constitutes the entire agreement between the parties and supersedes all prior discussions and agreements.');
 
     // Signatures
-    page2Y += 15;
+    if (page2Y > pageHeight - 80) { // Check space for signatures
+        addFooter(doc.internal.pages.length);
+        doc.addPage();
+        addHeader(doc.internal.pages.length);
+        page2Y = 30;
+    }
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('4. Acknowledgment and Signatures', margin, page2Y);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text("By signing below, the parties acknowledge that they have read, understood, and agreed to the terms and conditions of this agreement.", margin, page2Y + 8, { maxWidth: pageWidth - (margin * 2) });
+    page2Y += 8;
+    const acknowledgementText = "By signing below, the parties acknowledge that they have read, understood, and agreed to the terms and conditions of this agreement.";
+    const splitAckText = doc.splitTextToSize(acknowledgementText, pageWidth - (margin * 2));
+    doc.text(splitAckText, margin, page2Y);
+    page2Y += (splitAckText.length * 5) + 30;
     
-    page2Y += 40;
     doc.line(margin, page2Y, margin + 70, page2Y);
     doc.text('Signature of Borrower', margin, page2Y + 5);
     doc.text(`(${customer.name})`, margin, page2Y + 10);
     
     doc.line(pageWidth - margin - 70, page2Y, pageWidth - margin, page2Y);
-    doc.text('Signature of Guarantor', pageWidth - margin - 70, page2Y + 5);
-    doc.text(`(${customer.guarantorName})`, pageWidth - margin - 70, page2Y + 10);
+    doc.text('For FinanceFlow Inc.', pageWidth - margin - 70, page2Y + 5);
+    doc.text('(Authorized Signatory)', pageWidth - margin - 70, page2Y + 10);
 
-    addFooter(2);
+    page2Y += 25;
+    doc.line(margin, page2Y, margin + 70, page2Y);
+    doc.text('Signature of Guarantor', margin, page2Y + 5);
+    doc.text(`(${customer.guarantorName})`, margin, page2Y + 10);
+
+
+    addFooter(doc.internal.pages.length);
   }
 
 
