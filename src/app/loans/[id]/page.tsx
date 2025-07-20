@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, FileDown, MessageCircle, FileText } from 'lucide-react';
+import { CheckCircle, Clock, MessageCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -188,8 +188,8 @@ export default function LoanDetailsPage() {
               <CardDescription>Customer: {loan.customerName} ({loan.customerId})</CardDescription>
             </div>
             <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={generateLoanCardPDF}><FileDown className="h-4 w-4 mr-2"/> Loan Card</Button>
-                <Button variant="outline" size="sm" onClick={generateLoanAgreementPDF}><FileText className="h-4 w-4 mr-2"/> Loan Agreement</Button>
+                <Button variant="outline" size="sm" onClick={generateLoanCardPDF}>Loan Card</Button>
+                <Button variant="outline" size="sm" onClick={generateLoanAgreementPDF}>Loan Agreement</Button>
             </div>
           </div>
         </CardHeader>
