@@ -148,7 +148,7 @@ export default function LandingPage() {
             <div className="container mx-auto px-4 grid md:grid-cols-2 gap-8 items-center">
                 <div className="z-10 text-left">
                      <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-                        Empowering Rural Finance
+                        <SplitText text="Empowering Rural Finance" splitType="chars" delay={50} />
                       </h1>
                     <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-xl">
                         A complete solution for microfinance institutions to manage customers, loans, and collections with ease and efficiency.
