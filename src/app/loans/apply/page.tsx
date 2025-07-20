@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { Customer } from '@/types';
 import { useAuth } from '@/contexts/auth-context';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const formSchema = z.object({
   customerId: z.string().min(1, { message: 'Please select a customer.' }),
@@ -28,6 +29,7 @@ export default function LoanApplicationPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const { role, loading } = useAuth();
 
   useEffect(() => {
@@ -90,7 +92,13 @@ export default function LoanApplicationPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Customer</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        setSelectedCustomer(customers.find(c => c.id === value) || null);
+                      }}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a customer" />
@@ -108,6 +116,21 @@ export default function LoanApplicationPage() {
                   </FormItem>
                 )}
               />
+
+              {selectedCustomer && (
+                <div className="flex items-center gap-4 rounded-md border p-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={selectedCustomer.customerPhoto} alt={selectedCustomer.name} />
+                    <AvatarFallback>{selectedCustomer.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-bold">{selectedCustomer.name}</div>
+                    <div className="text-sm text-muted-foreground">{selectedCustomer.phone}</div>
+                     <div className="text-sm text-muted-foreground">{selectedCustomer.address}</div>
+                  </div>
+                </div>
+              )}
+
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <FormField
                     control={form.control}
