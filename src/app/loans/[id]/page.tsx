@@ -88,7 +88,7 @@ export default function LoanDetailsPage() {
             `₹${emi.principal.toLocaleString()}`,
             `₹${emi.interest.toLocaleString()}`,
             `₹${emi.balance.toLocaleString()}`,
-            emi.status,
+            emi.status === 'Paid' ? 'Paid' : '',
         ]),
     });
     
@@ -294,5 +294,3 @@ export default function LoanDetailsPage() {
     </div>
   );
 }
-
-    
