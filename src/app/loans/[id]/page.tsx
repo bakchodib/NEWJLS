@@ -114,12 +114,18 @@ export default function LoanDetailsPage() {
   const generateLoanCardPDF = async () => {
     if(!loan || !customer) return;
     const doc = new jsPDF();
-        
-    doc.setFontSize(11);
-    doc.text(`Loan Card`, 14, 22);
-    doc.text(`Loan ID: ${loan.id}`, 14, 28);
-    doc.text(`Customer: ${loan.customerName} (${loan.customerId})`, 14, 34);
     
+    // Header
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FinanceFlow Inc.', 14, 22);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Loan Card', 14, 30);
+    doc.setLineWidth(0.5);
+    doc.line(14, 34, 196, 34);
+
+    // Customer Photo
     if (customer.customerPhoto) {
         try {
             doc.addImage(customer.customerPhoto, 'JPEG', 150, 15, 30, 30);
@@ -128,11 +134,31 @@ export default function LoanDetailsPage() {
              toast({ title: "PDF Error", description: "Could not add customer photo to PDF.", variant: "destructive" });
         }
     }
-    
+
+    // Customer & Loan Details
     autoTable(doc, {
-        startY: 50,
-        head: [['Due Date', 'Amount', 'Principal', 'Interest', 'Balance', 'Status']],
-        body: loan.emis.map(emi => [
+        startY: 40,
+        body: [
+            [{ content: 'Customer Name:', styles: { fontStyle: 'bold' } }, customer.name],
+            [{ content: 'Customer ID:', styles: { fontStyle: 'bold' } }, customer.id],
+            [{ content: 'Loan ID:', styles: { fontStyle: 'bold' } }, loan.id],
+            [{ content: 'Loan Amount:', styles: { fontStyle: 'bold' } }, `₹${loan.amount.toLocaleString()}`],
+            [{ content: 'Interest Rate:', styles: { fontStyle: 'bold' } }, `${loan.interestRate}% p.a.`],
+            [{ content: 'Tenure:', styles: { fontStyle: 'bold' } }, `${loan.tenure} months`],
+            [{ content: 'Disbursal Date:', styles: { fontStyle: 'bold' } }, new Date(loan.disbursalDate).toLocaleDateString()],
+        ],
+        theme: 'plain',
+        styles: { fontSize: 10 },
+    });
+    
+    const finalY = (doc as any).lastAutoTable.finalY;
+
+    // EMI Schedule Table
+    autoTable(doc, {
+        startY: finalY + 5,
+        head: [['#', 'Due Date', 'Amount', 'Principal', 'Interest', 'Balance', 'Status']],
+        body: loan.emis.map((emi, index) => [
+            index + 1,
             new Date(emi.dueDate).toLocaleDateString(),
             `₹${emi.amount.toLocaleString()}`,
             `₹${emi.principal.toLocaleString()}`,
@@ -140,6 +166,13 @@ export default function LoanDetailsPage() {
             `₹${emi.balance.toLocaleString()}`,
             emi.status,
         ]),
+        headStyles: { fillColor: [46, 71, 101] }, // Dark Blue
+        didDrawPage: (data) => {
+            // Footer
+            const pageCount = doc.internal.pages.length;
+            doc.setFontSize(8);
+            doc.text(`Page ${data.pageNumber} of ${pageCount}`, data.settings.margin.left, doc.internal.pageSize.getHeight() - 10);
+        }
     });
     
     doc.save(`loan_card_${loan.id}.pdf`);
@@ -325,53 +358,45 @@ export default function LoanDetailsPage() {
     const pageHeight = doc.internal.pageSize.getHeight();
     
     const emiIndex = loan.emis.findIndex(e => e.id === emi.id);
-    const emiNumber = emiIndex !== -1 ? `${emiIndex + 1} of ${loan.emis.length}` : '';
-
+    const emiNumber = emiIndex !== -1 ? `${emiIndex + 1} of ${loan.emis.length}` : 'N/A';
 
     // Header
-    doc.setFontSize(12);
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text('Official Payment Receipt', margin, margin + 10);
-    doc.line(margin, margin + 14, pageWidth - margin, margin + 14);
-
-    if (customer.customerPhoto) {
-        try {
-            doc.addImage(customer.customerPhoto, 'JPEG', pageWidth - margin - 25, margin + 18, 25, 25);
-        } catch(e) {
-            console.error("Error adding image to PDF:", e);
-            toast({ title: "PDF Error", description: "Could not add customer photo to PDF.", variant: "destructive" });
-        }
-    }
-    
-    // Receipt Details
+    doc.text('Payment Receipt', pageWidth / 2, margin + 10, { align: 'center' });
     doc.setFontSize(10);
-    let receiptY = margin + 25;
-    doc.text(`Receipt No:`, margin, receiptY);
-    doc.text(`${emi.receiptNumber}`, margin + 40, receiptY);
-
-    receiptY += 7;
-    doc.text(`Payment Date:`, margin, receiptY);
-    doc.text(`${new Date(emi.paymentDate).toLocaleString()}`, margin + 40, receiptY);
-
-    // Customer & Loan Details
-    let detailsY = receiptY + 14;
-    doc.text(`Received from:`, margin, detailsY);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${customer.name} (ID: ${customer.id})`, margin + 40, detailsY);
     doc.setFont('helvetica', 'normal');
-
-    detailsY += 7;
-    doc.text(`For Loan ID:`, margin, detailsY);
-    doc.text(`${loan.id}`, margin + 40, detailsY);
+    doc.text('FinanceFlow Inc.', pageWidth / 2, margin + 16, { align: 'center' });
     
-    detailsY += 7;
-    doc.text(`EMI Number:`, margin, detailsY);
-    doc.text(`${emiNumber}`, margin + 40, detailsY);
+    // Receipt Details Table
+    autoTable(doc, {
+        startY: margin + 30,
+        body: [
+            [{ content: 'Receipt No:', styles: { fontStyle: 'bold' } }, emi.receiptNumber || 'N/A'],
+            [{ content: 'Payment Date:', styles: { fontStyle: 'bold' } }, new Date(emi.paymentDate).toLocaleString()],
+        ],
+        theme: 'plain',
+        styles: { fontSize: 9 }
+    });
 
+    let detailsY = (doc as any).lastAutoTable.finalY + 5;
+    doc.setLineWidth(0.2);
+    doc.line(margin, detailsY, pageWidth - margin, detailsY); // separator line
+    detailsY += 10;
+    
+    // Billed To Section
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('BILLED TO', margin, detailsY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(customer.name, margin, detailsY + 5);
+    doc.text(`Customer ID: ${customer.id}`, margin, detailsY + 10);
+    doc.text(`Loan ID: ${loan.id}`, margin, detailsY + 15);
+    doc.text(`EMI no. ${emiNumber}`, margin, detailsY + 20);
 
     // Payment Table
     autoTable(doc, {
-        startY: detailsY + 8,
+        startY: detailsY + 30,
         head: [['Description', 'Amount']],
         body: [
             ['EMI Amount Received', `₹ ${emi.amount.toLocaleString()}`],
@@ -380,24 +405,32 @@ export default function LoanDetailsPage() {
         ],
         foot: [[
             { content: 'Total Paid', styles: { fontStyle: 'bold', halign: 'right' } },
-            { content: `₹ ${emi.amount.toLocaleString()}`, styles: { fontStyle: 'bold' } }
+            { content: `₹ ${emi.amount.toLocaleString()}`, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], textColor: 20 } }
         ]],
         theme: 'striped',
         headStyles: { fillColor: [46, 71, 101] },
+        footStyles: { fontStyle: 'bold', lineWidth: 0.2 },
     });
-    let finalY = (doc as any).lastAutoTable.finalY + 7;
+    let finalY = (doc as any).lastAutoTable.finalY + 10;
 
+    doc.setFont('helvetica', 'bold');
     doc.text(`Payment Method:`, margin, finalY);
+    doc.setFont('helvetica', 'normal');
     doc.text(`${emi.paymentMethod}`, margin + 40, finalY);
 
-    doc.text(`Outstanding Balance after this payment:`, margin, finalY + 7);
-    doc.text(`₹ ${emi.balance.toLocaleString()}`, margin + 70, finalY + 7);
-
+    finalY += 7;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Outstanding Balance:`, margin, finalY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`₹ ${emi.balance.toLocaleString()}`, margin + 42, finalY);
 
     // Footer
+    const footerY = pageHeight - 20;
+    doc.setLineWidth(0.5);
+    doc.line(margin, footerY, pageWidth - margin, footerY);
     doc.setFontSize(8);
-    doc.text('This is a computer-generated receipt and does not require a signature.', pageWidth / 2, pageHeight - margin, { align: 'center' });
-    doc.line(margin, pageHeight - margin - 4, pageWidth - margin, pageHeight - margin - 4);
+    doc.text('Thank you for your payment!', pageWidth / 2, footerY + 8, { align: 'center' });
+    doc.text('This is a computer-generated receipt and does not require a signature.', pageWidth / 2, footerY + 12, { align: 'center' });
 
 
     doc.save(`receipt_${emi.receiptNumber}.pdf`);
