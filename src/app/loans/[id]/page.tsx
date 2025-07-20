@@ -14,6 +14,7 @@ import { CheckCircle, Clock, MessageCircle, Wallet, Download } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpenChange: (open: boolean) => void, message: string }) {
@@ -210,18 +211,19 @@ export default function LoanDetailsPage() {
     // ===== PAGE 1 =====
     addHeader();
 
-    if (customerPhotoDataUri) {
-        doc.addImage(customerPhotoDataUri, 'JPEG', pageWidth - margin - 30, 25, 30, 30);
-    }
-
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('FinanceFlow Inc. - Loan Agreement', pageWidth / 2, 40, { align: 'center' });
+    doc.text('FinanceFlow Inc. - Loan Agreement', pageWidth / 2, 30, { align: 'center' });
+
+    
+    if (customerPhotoDataUri) {
+        doc.addImage(customerPhotoDataUri, 'JPEG', pageWidth - margin - 35, 40, 30, 30);
+    }
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Loan ID: ${loan.id}`, margin, 50);
-    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, margin, 55);
+    doc.text(`Loan ID: ${loan.id}`, margin, 45);
+    doc.text(`Agreement Date: ${new Date().toLocaleDateString()}`, margin, 50);
 
 
     // Parties
@@ -441,9 +443,17 @@ export default function LoanDetailsPage() {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>Loan Details - {loan.id}</CardTitle>
-              <CardDescription>Customer: {loan.customerName} ({loan.customerId})</CardDescription>
+            <div className="flex items-center gap-4">
+               {customer?.customerPhoto && (
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={customer.customerPhoto} alt={customer.name} />
+                    <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                )}
+              <div>
+                <CardTitle>Loan Details - {loan.id}</CardTitle>
+                <CardDescription>Customer: {loan.customerName} ({loan.customerId})</CardDescription>
+              </div>
             </div>
             <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={generateLoanCardPDF}>Loan Card</Button>
@@ -522,7 +532,3 @@ export default function LoanDetailsPage() {
     </div>
   );
 }
-
-    
-
-    
