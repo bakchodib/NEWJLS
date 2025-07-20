@@ -9,13 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { Customer } from '@/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   customerId: z.string().min(1, { message: 'Please select a customer.' }),
@@ -32,6 +34,7 @@ export default function LoanApplicationPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const { role, loading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingCustomers, setIsFetchingCustomers] = useState(true);
 
   useEffect(() => {
     if (!loading && role !== 'admin') {
@@ -39,6 +42,7 @@ export default function LoanApplicationPage() {
       router.replace('/dashboard');
     }
     const fetchData = async () => {
+        setIsFetchingCustomers(true);
         try {
             const [fetchedCustomers, allLoans] = await Promise.all([
                 getCustomers(),
@@ -51,9 +55,13 @@ export default function LoanApplicationPage() {
             setCustomers(availableCustomers);
         } catch(error) {
             toast({ title: 'Error', description: 'Failed to load available customers.', variant: 'destructive' });
+        } finally {
+            setIsFetchingCustomers(false);
         }
     }
-    fetchData();
+    if (role === 'admin') {
+      fetchData();
+    }
   }, [role, loading, router, toast]);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -66,6 +74,16 @@ export default function LoanApplicationPage() {
       processingFee: 5,
     },
   });
+  
+  const customerId = form.watch('customerId');
+
+  useEffect(() => {
+      if(customerId) {
+          setSelectedCustomer(customers.find(c => c.id === customerId) || null);
+      } else {
+          setSelectedCustomer(null);
+      }
+  }, [customerId, customers]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -99,124 +117,126 @@ export default function LoanApplicationPage() {
       return <div>Loading...</div>;
   }
 
+  const CustomerSkeleton = () => (
+    <div className="flex flex-col items-center gap-2 p-4 border rounded-lg">
+        <Skeleton className="h-24 w-24 rounded-full" />
+        <Skeleton className="h-4 w-3/4" />
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
           <CardTitle>New Loan Application</CardTitle>
-          <CardDescription>Fill in the details below to create a new loan application.</CardDescription>
+          <CardDescription>
+            {selectedCustomer ? `Creating loan for ${selectedCustomer.name}` : 'First, select a customer from the list below.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <FormField
-                control={form.control}
-                name="customerId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Customer</FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        setSelectedCustomer(customers.find(c => c.id === value) || null);
-                      }}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={customers.length > 0 ? "Select a customer" : "No available customers"} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {customers.length > 0 ? (
-                          customers.map(c => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name} ({c.id})
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="no-customers" disabled>
-                            All customers have existing loans.
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+              <div>
+                <FormLabel>Select a Customer</FormLabel>
+                {isFetchingCustomers ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
+                        {Array.from({length: 4}).map((_, i) => <CustomerSkeleton key={i} />)}
+                    </div>
+                ) : customers.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
+                        {customers.map(customer => (
+                            <button
+                                type="button"
+                                key={customer.id}
+                                onClick={() => form.setValue('customerId', customer.id, { shouldValidate: true })}
+                                className={cn(
+                                    "p-4 border rounded-lg flex flex-col items-center gap-2 text-center transition-all duration-200",
+                                    customerId === customer.id ? 'ring-2 ring-primary bg-primary/10' : 'hover:bg-muted/50'
+                                )}
+                            >
+                                <Avatar className="h-24 w-24 border-2" data-ai-hint="person portrait">
+                                    <AvatarImage src={customer.customerPhoto} alt={customer.name} />
+                                    <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium text-sm">{customer.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-8 border rounded-lg mt-2">
+                        <p className="text-muted-foreground">No available customers to create a new loan for.</p>
+                        <p className="text-xs text-muted-foreground mt-1">All registered customers may already have an active loan.</p>
+                    </div>
                 )}
-              />
-
-              {selectedCustomer && (
-                <div className="flex items-center gap-4 rounded-md border p-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={selectedCustomer.customerPhoto} alt={selectedCustomer.name} />
-                    <AvatarFallback>{selectedCustomer.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-bold">{selectedCustomer.name}</div>
-                    <div className="text-sm text-muted-foreground">{selectedCustomer.phone}</div>
-                     <div className="text-sm text-muted-foreground">{selectedCustomer.address}</div>
-                  </div>
-                </div>
-              )}
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <FormField
-                    control={form.control}
-                    name="amount"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Loan Amount (₹)</FormLabel>
-                        <FormControl>
-                        <Input type="number" placeholder="50000" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="interestRate"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Annual Interest Rate (%)</FormLabel>
-                        <FormControl>
-                        <Input type="number" step="0.1" placeholder="12.5" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="tenure"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Tenure (in months)</FormLabel>
-                        <FormControl>
-                        <Input type="number" placeholder="36" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="processingFee"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Processing Fee (%)</FormLabel>
-                        <FormControl>
-                        <Input type="number" step="0.1" placeholder="5" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
+                  control={form.control}
+                  name="customerId"
+                  render={() => <FormMessage className="mt-2" />}
                 />
               </div>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
-              </Button>
+
+              {selectedCustomer && (
+                <>
+                <Separator />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <FormField
+                      control={form.control}
+                      name="amount"
+                      render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Loan Amount (₹)</FormLabel>
+                          <FormControl>
+                          <Input type="number" placeholder="50000" {...field} value={field.value ?? ''} />
+                          </FormControl>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+                  <FormField
+                      control={form.control}
+                      name="interestRate"
+                      render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Annual Interest Rate (%)</FormLabel>
+                          <FormControl>
+                          <Input type="number" step="0.1" placeholder="12.5" {...field} value={field.value ?? ''} />
+                          </FormControl>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+                   <FormField
+                      control={form.control}
+                      name="tenure"
+                      render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Tenure (in months)</FormLabel>
+                          <FormControl>
+                          <Input type="number" placeholder="36" {...field} value={field.value ?? ''} />
+                          </FormControl>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+                  <FormField
+                      control={form.control}
+                      name="processingFee"
+                      render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Processing Fee (%)</FormLabel>
+                          <FormControl>
+                          <Input type="number" step="0.1" placeholder="5" {...field} value={field.value ?? ''} />
+                          </FormControl>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+                </div>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+                </Button>
+                </>
+              )}
             </form>
           </Form>
         </CardContent>
