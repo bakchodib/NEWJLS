@@ -7,11 +7,12 @@ import { ArrowRight, Briefcase, Landmark, ShieldCheck, Users, Wallet } from 'luc
 import { useAuth } from '@/contexts/auth-context';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card as ShadCard, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CardSwap, { Card } from '@/components/ui/CardSwap';
 import '@/components/ui/CardSwap.css';
 import SplitText from '@/components/ui/SplitText';
 import ProfileCard from '@/components/ui/ProfileCard';
+import Aurora from '@/components/ui/Aurora';
+import TiltedCard from '@/components/ui/TiltedCard';
 
 
 export default function LandingPage() {
@@ -37,21 +38,29 @@ export default function LandingPage() {
       icon: <Users className="h-8 w-8 text-primary" />,
       title: 'Customer Management',
       description: 'Easily register, view, and manage your entire customer base with detailed KYC information.',
+      image: 'https://placehold.co/600x400.png',
+      hint: 'customers analytics'
     },
     {
       icon: <Landmark className="h-8 w-8 text-primary" />,
       title: 'Loan Processing',
       description: 'Streamline loan applications, approvals, and disbursals with our intuitive workflow.',
+      image: 'https://placehold.co/600x400.png',
+      hint: 'loan application'
     },
     {
       icon: <Wallet className="h-8 w-8 text-primary" />,
       title: 'EMI Collection',
       description: 'Track and collect monthly EMIs with automated schedules and payment logging.',
+      image: 'https://placehold.co/600x400.png',
+      hint: 'finance payment'
     },
     {
       icon: <ShieldCheck className="h-8 w-8 text-primary" />,
       title: 'Secure & Reliable',
       description: 'Built on a robust and secure platform to keep your financial data safe and accessible.',
+      image: 'https://placehold.co/600x400.png',
+      hint: 'data security'
     }
   ];
 
@@ -121,7 +130,7 @@ export default function LandingPage() {
                         <Card customClass="bg-card text-card-foreground p-6 flex flex-col justify-center items-center text-center">
                           <Landmark className="h-12 w-12 mb-4 text-primary"/>
                           <h3 className="text-xl font-bold">
-                            <SplitText text="Micro Loans" splitType='chars' delay={50} />
+                             <SplitText text="Micro Loans" splitType='chars' delay={50} />
                           </h3>
                            <SplitText text="Fast disbursal of small loans to empower communities." splitType='words' delay={30} className="mt-2 text-sm text-card-foreground/80" />
                         </Card>
@@ -145,26 +154,29 @@ export default function LandingPage() {
         </section>
 
         {/* Part 2: How It Works Section */}
-        <section id="how-it-works" className="py-20 bg-muted/20">
-             <div className="container mx-auto px-4">
+        <section id="how-it-works" className="py-20 bg-muted/20 relative overflow-hidden">
+             <div className="absolute inset-0 z-0">
+                <Aurora colorStops={["#2E4765", "#45B3A9", "#F0F4F8"]} />
+             </div>
+             <div className="container mx-auto px-4 relative z-10">
                 <div className="text-center mb-12">
                     <h2 className="text-3xl md:text-4xl font-bold">Get Started in 3 Easy Steps</h2>
                     <p className="text-lg text-muted-foreground mt-2">A seamless workflow from start to finish.</p>
                 </div>
                 <div className="relative">
-                    <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-border -translate-y-1/2"></div>
+                    {/* The line is removed to not clash with the aurora background */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-16">
-                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card rounded-lg shadow-md">
+                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20">
                             <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground font-bold text-2xl border-4 border-background mb-4">1</div>
                             <h3 className="text-xl font-semibold mb-2">Register Customers</h3>
                             <p className="text-muted-foreground">Quickly add new customers with all necessary KYC documents and details.</p>
                         </div>
-                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card rounded-lg shadow-md">
+                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20">
                            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground font-bold text-2xl border-4 border-background mb-4">2</div>
                             <h3 className="text-xl font-semibold mb-2">Disburse Loans</h3>
                             <p className="text-muted-foreground">Create and manage loan applications, get approvals, and disburse funds.</p>
                         </div>
-                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card rounded-lg shadow-md">
+                        <div className="flex flex-col items-center text-center z-10 p-6 bg-card/80 backdrop-blur-sm rounded-lg shadow-lg border border-border/20">
                             <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground font-bold text-2xl border-4 border-background mb-4">3</div>
                             <h3 className="text-xl font-semibold mb-2">Collect EMIs</h3>
                             <p className="text-muted-foreground">Follow a clear schedule to collect monthly payments and track your progress.</p>
@@ -181,19 +193,32 @@ export default function LandingPage() {
               <h2 className="text-3xl md:text-4xl font-bold">Powerful Features, Simple Interface</h2>
               <p className="text-lg text-muted-foreground mt-2">Everything you need to run your finance business efficiently.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {features.map((feature, index) => (
-                <ShadCard key={index} className="text-center bg-card shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                  <CardHeader>
-                    <div className="mx-auto bg-primary/10 rounded-full p-4 w-fit mb-4">
-                      {feature.icon}
+                 <TiltedCard
+                  key={index}
+                  imageSrc={feature.image}
+                  altText={feature.title}
+                  captionText={feature.title}
+                  containerHeight="350px"
+                  containerWidth="100%"
+                  imageHeight="350px"
+                  imageWidth="100%"
+                  scaleOnHover={1.05}
+                  rotateAmplitude={8}
+                  showMobileWarning={false}
+                  showTooltip={false}
+                  displayOverlayContent={true}
+                  overlayContent={
+                    <div className="p-4 bg-black/50 backdrop-blur-sm h-full flex flex-col justify-end text-white rounded-lg">
+                      <div className="mx-auto bg-primary/50 rounded-full p-3 w-fit mb-3">
+                        {feature.icon}
+                      </div>
+                      <h3 className="text-lg font-bold">{feature.title}</h3>
+                      <p className="text-xs text-white/80 mt-1">{feature.description}</p>
                     </div>
-                    <CardTitle>{feature.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">{feature.description}</p>
-                  </CardContent>
-                </ShadCard>
+                  }
+                 />
               ))}
             </div>
           </div>
