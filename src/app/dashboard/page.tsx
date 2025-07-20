@@ -33,7 +33,7 @@ const AdminDashboard = ({ stats }: { stats: any }) => (
       <CardContent>
         <div className="text-2xl font-bold">{stats.totalLoans}</div>
         <p className="text-xs text-muted-foreground">
-          Total Disbursed: ₹{stats.totalDisbursed.toLocaleString()}
+          Net Disbursed: ₹{stats.netDisbursed.toLocaleString()}
         </p>
          <Link href="/loans" className="text-xs text-muted-foreground underline">View all loans</Link>
       </CardContent>
@@ -166,10 +166,16 @@ export default function DashboardPage() {
             
             const allPendingEmis = disbursedLoans.flatMap(loan => loan.emis.filter(emi => emi.status === 'Pending'));
 
+            const netDisbursed = disbursedLoans.reduce((acc, loan) => {
+                const processingFeeAmount = loan.amount * (loan.processingFee / 100);
+                const netAmount = loan.amount - processingFeeAmount;
+                return acc + netAmount;
+            }, 0);
+
             dashboardStats = {
                 totalCustomers: customers.length,
                 totalLoans: disbursedLoans.length,
-                totalDisbursed: disbursedLoans.reduce((acc, loan) => acc + loan.amount, 0),
+                netDisbursed: netDisbursed,
                 overdueEmis: allPendingEmis.filter(emi => new Date(emi.dueDate) < now).length,
                 upcomingEmis: allPendingEmis.filter(emi => new Date(emi.dueDate) >= today && new Date(emi.dueDate) <= nextWeek).length
             };
