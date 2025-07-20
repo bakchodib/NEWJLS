@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { addLoan, getCustomers } from '@/lib/storage';
+import { addLoan, getCustomers, getLoans } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -38,15 +38,22 @@ export default function LoanApplicationPage() {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
     }
-    const fetchCustomers = async () => {
+    const fetchData = async () => {
         try {
-            const fetchedCustomers = await getCustomers();
-            setCustomers(fetchedCustomers);
+            const [fetchedCustomers, allLoans] = await Promise.all([
+                getCustomers(),
+                getLoans()
+            ]);
+            
+            const customerIdsWithLoans = new Set(allLoans.map(loan => loan.customerId));
+            const availableCustomers = fetchedCustomers.filter(customer => !customerIdsWithLoans.has(customer.id));
+
+            setCustomers(availableCustomers);
         } catch(error) {
-            toast({ title: 'Error', description: 'Failed to load customers.', variant: 'destructive' });
+            toast({ title: 'Error', description: 'Failed to load available customers.', variant: 'destructive' });
         }
     }
-    fetchCustomers();
+    fetchData();
   }, [role, loading, router, toast]);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -117,15 +124,21 @@ export default function LoanApplicationPage() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a customer" />
+                          <SelectValue placeholder={customers.length > 0 ? "Select a customer" : "No available customers"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {customers.map(c => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name} ({c.id})
+                        {customers.length > 0 ? (
+                          customers.map(c => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name} ({c.id})
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-customers" disabled>
+                            All customers have existing loans.
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
