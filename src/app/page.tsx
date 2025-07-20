@@ -29,14 +29,14 @@ export default function LoginPage() {
 
   if (loading || role) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="text-lg font-semibold">Loading...</div>
       </div>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-light-gray dark:bg-gray-900 p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         <Card className="shadow-2xl">
           <CardHeader className="text-center">

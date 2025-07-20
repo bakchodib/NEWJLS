@@ -6,10 +6,11 @@ import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { LayoutDashboard, Users, Landmark, HandCoins, UserPlus, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, HandCoins, UserPlus, Briefcase, UserCog } from 'lucide-react';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/users', label: 'User Management', icon: UserCog },
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/customers/register', label: 'Register Customer', icon: UserPlus },
   { href: '/loans', label: 'Loans', icon: Landmark },
@@ -54,8 +55,9 @@ export function Sidebar() {
                   href={item.href}
                   className={cn(
                     'flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8',
-                    pathname.startsWith(item.href) && item.href !== '/dashboard' && 'bg-accent text-accent-foreground',
-                    pathname === '/dashboard' && item.href === '/dashboard' && 'bg-accent text-accent-foreground'
+                    pathname === item.href && 'bg-accent text-accent-foreground',
+                    pathname.startsWith(item.href) && item.href !== '/dashboard' && pathname !== item.href && 'bg-accent/50 text-accent-foreground',
+                     pathname.startsWith(item.href) && item.href !== '/' && !pathname.startsWith('/dashboard') && 'bg-accent text-accent-foreground'
                   )}
                 >
                   <item.icon className="h-5 w-5" />
