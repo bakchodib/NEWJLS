@@ -12,6 +12,7 @@ import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -69,6 +70,7 @@ export default function CustomersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Photo</TableHead>
                 <TableHead>Customer ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
@@ -80,6 +82,12 @@ export default function CustomersPage() {
               {customers.length > 0 ? (
                 customers.map((customer) => (
                   <TableRow key={customer.id}>
+                    <TableCell>
+                       <Avatar>
+                        <AvatarImage src={customer.customerPhoto} alt={customer.name} />
+                        <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
+                       </Avatar>
+                    </TableCell>
                     <TableCell className="font-medium">{customer.id}</TableCell>
                     <TableCell>{customer.name}</TableCell>
                     <TableCell>{customer.phone}</TableCell>
@@ -122,7 +130,7 @@ export default function CustomersPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
+                  <TableCell colSpan={6} className="text-center">
                     No customers found.
                   </TableCell>
                 </TableRow>
