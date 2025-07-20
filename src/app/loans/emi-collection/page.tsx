@@ -84,6 +84,7 @@ export default function EmiCollectionPage() {
   }
 
   const imageToDataUrl = async (url: string): Promise<string | null> => {
+    if (!url) return null;
     try {
         const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
         if (!response.ok) throw new Error(`Image fetch failed for ${url}`);
@@ -106,8 +107,9 @@ export default function EmiCollectionPage() {
   const generateReportPDF = async () => {
     const doc = new jsPDF();
     const monthName = format(selectedDate, 'MMMM yyyy');
-    const logoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
-    const logoDataUrl = await imageToDataUrl(logoUrl);
+    const defaultLogoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
+    const companyLogoUrl = localStorage.getItem('companyLogoUrl') || defaultLogoUrl;
+    const logoDataUrl = await imageToDataUrl(companyLogoUrl);
 
     if (logoDataUrl) {
       doc.addImage(logoDataUrl, 'PNG', 14, 15, 10, 10);
@@ -117,7 +119,6 @@ export default function EmiCollectionPage() {
     doc.setFontSize(12)
     doc.text(`EMI Due Report - ${monthName}`, 14, 32);
 
-    const tableBody = [];
     const imagePromises = dueEmis.map(emi => imageToDataUrl(emi.customer.customerPhoto));
     const imageDataUrls = await Promise.all(imagePromises);
 
@@ -136,7 +137,7 @@ export default function EmiCollectionPage() {
         startY: 40,
         head: [['Photo', 'Customer', 'Phone', 'Guarantor', 'Guarantor Phone', 'EMI Amount']],
         body: body,
-        foot: [[`Total Due: ₹${totalDueAmount.toLocaleString()}`, '', '', '', '', '']],
+        foot: [[ {content: `Total Due: ₹${totalDueAmount.toLocaleString()}`, colSpan: 6, styles: { halign: 'right' } } ]],
         footStyles: { fontStyle: 'bold' },
         didDrawCell: (data) => {
             if (data.column.index === 0 && data.cell.section === 'body') {
@@ -239,3 +240,5 @@ export default function EmiCollectionPage() {
     </div>
   );
 }
+
+    

@@ -96,8 +96,9 @@ export default function LoanDetailsPage() {
   const generateLoanCardPDF = async () => {
     if(!loan || !customer) return;
     const doc = new jsPDF();
-    const logoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
-    const logoDataUrl = await imageToDataUrl(logoUrl);
+    const defaultLogoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
+    const companyLogoUrl = localStorage.getItem('companyLogoUrl') || defaultLogoUrl;
+    const logoDataUrl = await imageToDataUrl(companyLogoUrl);
     
     let customerPhotoDataUrl: string | null = null;
     if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
@@ -140,8 +141,9 @@ export default function LoanDetailsPage() {
     
     const doc = new jsPDF();
     
-    const logoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
-    const logoDataUrl = await imageToDataUrl(logoUrl);
+    const defaultLogoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
+    const companyLogoUrl = localStorage.getItem('companyLogoUrl') || defaultLogoUrl;
+    const logoDataUrl = await imageToDataUrl(companyLogoUrl);
 
     let customerPhotoDataUrl: string | null = null;
     if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
@@ -380,3 +382,5 @@ export default function LoanDetailsPage() {
     </div>
   );
 }
+
+    
