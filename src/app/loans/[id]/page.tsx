@@ -98,20 +98,14 @@ export default function LoanDetailsPage() {
   const generateLoanCardPDF = async () => {
     if(!loan || !customer) return;
     const doc = new jsPDF();
-    const defaultLogoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
-    const companyLogoUrl = localStorage.getItem('companyLogoUrl') || defaultLogoUrl;
-    const logoDataUrl = await imageToDataUrl(companyLogoUrl);
     
     let customerPhotoDataUrl: string | null = null;
     if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
         customerPhotoDataUrl = await imageToDataUrl(customer.customerPhoto);
     }
 
-    if (logoDataUrl) {
-      doc.addImage(logoDataUrl, 'PNG', 14, 15, 10, 10);
-    }
     doc.setFontSize(18);
-    doc.text(`FinanceFlow Inc.`, 28, 22);
+    doc.text(`FinanceFlow Inc.`, 14, 22);
     
     if (customerPhotoDataUrl) {
       doc.addImage(customerPhotoDataUrl, 'PNG', doc.internal.pageSize.getWidth() - 34, 15, 20, 20);
@@ -143,10 +137,6 @@ export default function LoanDetailsPage() {
     
     const doc = new jsPDF();
     
-    const defaultLogoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
-    const companyLogoUrl = localStorage.getItem('companyLogoUrl') || defaultLogoUrl;
-    const logoDataUrl = await imageToDataUrl(companyLogoUrl);
-
     let customerPhotoDataUrl: string | null = null;
     if (customer.customerPhoto && customer.customerPhoto.startsWith('http')) {
         customerPhotoDataUrl = await imageToDataUrl(customer.customerPhoto);
@@ -154,11 +144,11 @@ export default function LoanDetailsPage() {
         customerPhotoDataUrl = customer.customerPhoto;
     }
     
-    addAgreementContent(doc, customerPhotoDataUrl, logoDataUrl);
+    addAgreementContent(doc, customerPhotoDataUrl);
     doc.save(`loan_agreement_${loan.id}.pdf`);
   }
 
-  const addAgreementContent = (doc: jsPDF, photoDataUrl: string | null, logoDataUrl: string | null) => {
+  const addAgreementContent = (doc: jsPDF, photoDataUrl: string | null) => {
     if(!loan || !customer) return;
 
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -166,12 +156,9 @@ export default function LoanDetailsPage() {
     const margin = 14;
 
     const addHeader = (pageNumber: number) => {
-        if(logoDataUrl){
-            doc.addImage(logoDataUrl, 'PNG', margin, margin - 4, 10, 10);
-        }
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text('FinanceFlow Inc.', margin + 12, margin + 2);
+        doc.text('FinanceFlow Inc.', margin, margin + 2);
         doc.line(margin, margin + 8, pageWidth - margin, margin + 8);
     };
 
@@ -398,5 +385,3 @@ export default function LoanDetailsPage() {
     </div>
   );
 }
-
-    

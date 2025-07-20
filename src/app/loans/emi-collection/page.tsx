@@ -107,15 +107,9 @@ export default function EmiCollectionPage() {
   const generateReportPDF = async () => {
     const doc = new jsPDF();
     const monthName = format(selectedDate, 'MMMM yyyy');
-    const defaultLogoUrl = 'https://i.ibb.co/9Hwjrt7/logo.png';
-    const companyLogoUrl = localStorage.getItem('companyLogoUrl') || defaultLogoUrl;
-    const logoDataUrl = await imageToDataUrl(companyLogoUrl);
 
-    if (logoDataUrl) {
-      doc.addImage(logoDataUrl, 'PNG', 14, 15, 10, 10);
-    }
     doc.setFontSize(18);
-    doc.text(`FinanceFlow Inc.`, 28, 22);
+    doc.text(`FinanceFlow Inc.`, 14, 22);
     doc.setFontSize(12)
     doc.text(`EMI Due Report - ${monthName}`, 14, 32);
 
@@ -240,5 +234,3 @@ export default function EmiCollectionPage() {
     </div>
   );
 }
-
-    
