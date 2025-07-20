@@ -23,13 +23,29 @@ const loansCollection = collection(db, 'loans');
 
 
 export const getCustomers = async (): Promise<Customer[]> => {
-  const querySnapshot = await getDocs(customersCollection);
+  const querySnapshot = await getDocs(query(customersCollection, orderBy("id")));
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
 };
 
 export const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
-  const docRef = await addDoc(customersCollection, customer);
-  return { id: docRef.id, ...customer };
+  const lastCustomerQuery = query(customersCollection, orderBy("id", "desc"), limit(1));
+  const lastCustomerSnapshot = await getDocs(lastCustomerQuery);
+
+  let newCustomerId = 101000;
+  if (!lastCustomerSnapshot.empty) {
+    const lastCustomerId = parseInt(lastCustomerSnapshot.docs[0].id, 10);
+    newCustomerId = lastCustomerId + 100;
+  }
+  
+  const newCustomerData = {
+      ...customer,
+      id: String(newCustomerId),
+  };
+
+  const customerDocRef = doc(db, 'customers', newCustomerData.id);
+  await setDoc(customerDocRef, newCustomerData);
+
+  return newCustomerData;
 };
 
 export const updateCustomer = async (updatedCustomer: Customer): Promise<void> => {
@@ -133,7 +149,7 @@ export const deleteLoan = async (loanId: string): Promise<void> => {
     await deleteDoc(doc(db, 'loans', loanId));
 }
 
-export const disburseLoan = async (loanId: string, disbursalDate: Date = new Date()): Promise<Loan | null> => {
+export const disburseLoan = async (loanId: string, disbursalDate: Date): Promise<Loan | null> => {
     const loan = await getLoanById(loanId);
     if (!loan || loan.status !== 'Approved') return null;
 
