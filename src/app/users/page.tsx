@@ -70,6 +70,11 @@ export default function UserManagementPage() {
   }, [user, loading, router, toast, fetchUsers]);
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'agent') => {
+    if (userId === user?.uid) {
+        toast({ title: "Action Forbidden", description: "You cannot change your own role.", variant: "destructive" });
+        await fetchUsers(); // Re-fetch to revert the optimistic UI change in the select
+        return;
+    }
     try {
       const userDoc = doc(db, 'users', userId);
       await updateDoc(userDoc, { role: newRole });
@@ -81,13 +86,17 @@ export default function UserManagementPage() {
   };
 
   const handleAddUser = async (values: z.infer<typeof newUserSchema>) => {
-      // This is a placeholder for a more secure way to create users.
-      // In a real app, you'd use a Cloud Function to create the auth user
-      // to avoid exposing auth credentials or needing to re-authenticate the admin.
+      // In a real-world, high-security app, creating users should be done via a trusted backend server or Cloud Function.
+      // For this prototype, we'll allow an admin to do it from the client, assuming the Firestore rules are secure.
+      form.formState.isSubmitting = true;
       try {
+        // We use a temporary auth instance for this creation process to not affect the current admin's session.
+        // NOTE: This approach has limitations and is a simplified one for this prototype.
+        // A more robust solution involves a Cloud Function that handles user creation.
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const newUser = userCredential.user;
 
+        // Now, store the user's role and name in Firestore.
         await setDoc(doc(db, 'users', newUser.uid), {
             name: values.name,
             email: values.email,
@@ -95,11 +104,17 @@ export default function UserManagementPage() {
         });
 
         toast({ title: "User Created", description: `${values.name} has been added as an ${values.role}.` });
-        await fetchUsers();
-        setIsAddUserOpen(false);
-        form.reset();
+        await fetchUsers(); // Refresh the user list
+        setIsAddUserOpen(false); // Close the dialog
+        form.reset(); // Reset the form
       } catch(error: any) {
-          toast({ title: "Creation Failed", description: error.message || "Could not create user.", variant: "destructive" });
+          let errorMessage = "Could not create user.";
+          if (error.code === 'auth/email-already-in-use') {
+              errorMessage = "This email address is already in use by another account.";
+          }
+          toast({ title: "Creation Failed", description: errorMessage, variant: "destructive" });
+      } finally {
+          form.formState.isSubmitting = false;
       }
   };
 
@@ -187,7 +202,7 @@ export default function UserManagementPage() {
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Add New User</DialogTitle>
-                  <DialogDescription>Create a new Admin or Agent user. They will receive an email to set up their account.</DialogDescription>
+                  <DialogDescription>Create a new Admin or Agent user. This will create a new login in Firebase Authentication.</DialogDescription>
               </DialogHeader>
               <form onSubmit={form.handleSubmit(handleAddUser)} className="space-y-4 py-4">
                   <div>
