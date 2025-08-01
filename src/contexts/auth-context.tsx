@@ -5,8 +5,8 @@ import { createContext, useState, useEffect, useContext, ReactNode, useCallback 
 import { useRouter, usePathname } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
-import type { Business } from '@/types';
+import { doc, getDoc, collection, query, where, getDocs, setDoc, writeBatch } from 'firebase/firestore';
+import type { Business, Customer } from '@/types';
 
 type Role = 'admin' | 'agent' | 'customer';
 
@@ -47,6 +47,85 @@ const setSelectedBusinessInStorage = (business: Business | null) => {
     }
 };
 
+const createDummyCustomers = async (businessId: string) => {
+    const batch = writeBatch(db);
+    const dummyCustomers: Omit<Customer, 'id'>[] = [
+        {
+            businessId,
+            name: 'Rohit Sharma',
+            phone: '9876543210',
+            address: '123 Cricket Lane, Mumbai',
+            customerPhoto: 'https://placehold.co/100x100.png',
+            aadharNumber: '123456789012',
+            aadharImage: 'https://placehold.co/400x250.png',
+            panNumber: 'ABCDE1234F',
+            panImage: 'https://placehold.co/400x250.png',
+            guarantorName: 'Virat Kohli',
+            guarantorPhone: '9876543211'
+        },
+        {
+            businessId,
+            name: 'Sunita Devi',
+            phone: '9876543212',
+            address: '456 Ganga Nagar, Jaipur',
+            customerPhoto: 'https://placehold.co/100x100.png',
+            aadharNumber: '234567890123',
+            aadharImage: 'https://placehold.co/400x250.png',
+            panNumber: 'FGHIJ5678K',
+            panImage: 'https://placehold.co/400x250.png',
+            guarantorName: 'Geeta Kumari',
+            guarantorPhone: '9876543213'
+        },
+        {
+            businessId,
+            name: 'Amit Kumar',
+            phone: '9876543214',
+            address: '789 Yamuna Vihar, Delhi',
+            customerPhoto: 'https://placehold.co/100x100.png',
+            aadharNumber: '345678901234',
+            aadharImage: 'https://placehold.co/400x250.png',
+            panNumber: 'LMNOP9012L',
+            panImage: 'https://placehold.co/400x250.png',
+            guarantorName: 'Sumit Singh',
+            guarantorPhone: '9876543215'
+        },
+        {
+            businessId,
+            name: 'Priya Patel',
+            phone: '9876543216',
+            address: '101 Sabarmati Road, Ahmedabad',
+            customerPhoto: 'https://placehold.co/100x100.png',
+            aadharNumber: '456789012345',
+            aadharImage: 'https://placehold.co/400x250.png',
+            panNumber: 'QRSTU3456M',
+            panImage: 'https://placehold.co/400x250.png',
+            guarantorName: 'Rina Patel',
+            guarantorPhone: '9876543217'
+        },
+        {
+            businessId,
+            name: 'Sandeep Singh',
+            phone: '9876543218',
+            address: '212 Golden Temple Road, Amritsar',
+            customerPhoto: 'https://placehold.co/100x100.png',
+            aadharNumber: '567890123456',
+            aadharImage: 'https://placehold.co/400x250.png',
+            panNumber: 'VWXYZ7890N',
+            panImage: 'https://placehold.co/400x250.png',
+            guarantorName: 'Manpreet Kaur',
+            guarantorPhone: '9876543219'
+        }
+    ];
+
+    dummyCustomers.forEach(customerData => {
+        const customerId = `cust_${new Date().getTime()}_${Math.random().toString(36).substring(2, 9)}`;
+        const customerDocRef = doc(db, 'customers', customerId);
+        batch.set(customerDocRef, { ...customerData, id: customerId });
+    });
+
+    await batch.commit();
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           let fetchedBusinesses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Business));
 
-          // If no businesses exist for this admin, create the first one
+          // If no businesses exist for this admin, create the first one with dummy data
           if (fetchedBusinesses.length === 0) {
               const firstBusiness: Business = { 
                   id: 'biz_101', 
@@ -76,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   ownerId: uid 
               };
               await setDoc(doc(db, 'businesses', firstBusiness.id), firstBusiness);
+              await createDummyCustomers(firstBusiness.id); // Create dummy customers
               fetchedBusinesses = [firstBusiness];
           }
           
