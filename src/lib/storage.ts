@@ -69,15 +69,15 @@ export const deleteBusiness = async (businessId: string): Promise<void> => {
 
 // Customer Functions
 export const getCustomers = async (businessId: string): Promise<Customer[]> => {
-  const q = query(customersCollection, where("businessId", "==", businessId));
+  const q = query(customersCollection, where("businessId", "==", businessId), orderBy("name"));
   const querySnapshot = await getDocs(q);
   const customers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
-  return customers.sort((a, b) => a.name.localeCompare(b.name));
+  return customers;
 };
 
 export const getAvailableCustomers = async (businessId: string): Promise<Customer[]> => {
     const [customersSnapshot, loansSnapshot] = await Promise.all([
-        getDocs(query(customersCollection, where("businessId", "==", businessId))),
+        getDocs(query(customersCollection, where("businessId", "==", businessId), orderBy("name"))),
         getDocs(query(loansCollection, where("businessId", "==", businessId), where("status", "in", ["Pending", "Approved", "Disbursed"])))
     ]);
     
@@ -85,11 +85,11 @@ export const getAvailableCustomers = async (businessId: string): Promise<Custome
     const customerIdsWithActiveLoans = new Set(loansSnapshot.docs.map(loan => loan.data().customerId));
 
     const availableCustomers = customers.filter(customer => !customerIdsWithActiveLoans.has(customer.id));
-    return availableCustomers.sort((a, b) => a.name.localeCompare(b.name));
+    return availableCustomers;
 }
 
 export const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
-  const customerId = `cust_${new Date().getTime()}`;
+  const customerId = `cust_${new Date().getTime()}_${Math.random().toString(36).substring(2, 9)}`;
   
   const newCustomerData = {
       ...customer,
@@ -156,7 +156,7 @@ export const getLoanById = async (businessId: string, loanId: string): Promise<L
 export const getCustomerById = async (businessId: string, customerId: string): Promise<Customer | null> => {
     const customerDoc = await getDoc(doc(db, 'customers', customerId));
     if (customerDoc.exists() && customerDoc.data().businessId === businessId) {
-        return { id: customerDoc.id, ...doc.data() } as Customer;
+        return { id: customerDoc.id, ...customerDoc.data() } as Customer;
     }
     return null;
 }
