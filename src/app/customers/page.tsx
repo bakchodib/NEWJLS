@@ -115,7 +115,7 @@ export default function CustomersPage() {
                         <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
                        </Avatar>
                     </TableCell>
-                    <TableCell className="font-medium truncate max-w-[100px]">{customer.id}</TableCell>
+                    <TableCell className="font-medium truncate max-w-[150px]">{customer.id}</TableCell>
                     <TableCell>{customer.name}</TableCell>
                     <TableCell>{customer.phone}</TableCell>
                     <TableCell>{customer.address}</TableCell>

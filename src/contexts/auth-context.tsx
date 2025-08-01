@@ -109,11 +109,16 @@ const createDummyCustomers = async (businessId: string) => {
         }
     ];
 
-    dummyCustomers.forEach(customerData => {
-        const customerId = `cust_${new Date().getTime()}_${Math.random().toString(36).substring(2, 9)}`;
+    for (const customerData of dummyCustomers) {
+        const customerId = `cust${customerData.phone}`;
         const customerDocRef = doc(db, 'customers', customerId);
-        batch.set(customerDocRef, { ...customerData, id: customerId });
-    });
+        
+        // Check if customer already exists to avoid overwriting during development hot-reloads
+        const docSnap = await getDoc(customerDocRef);
+        if (!docSnap.exists()) {
+            batch.set(customerDocRef, { ...customerData, id: customerId });
+        }
+    }
 
     await batch.commit();
 };

@@ -70,7 +70,7 @@ export const deleteBusiness = async (businessId: string): Promise<void> => {
 
 // Customer Functions
 export const getCustomers = async (businessId: string): Promise<Customer[]> => {
-  const q = query(customersCollection, where("businessId", "==", businessId));
+  const q = query(customersCollection, where("businessId", "==", businessId), orderBy("name"));
   const querySnapshot = await getDocs(q);
   const customers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
   return customers;
@@ -90,8 +90,14 @@ export const getAvailableCustomers = async (businessId: string): Promise<Custome
 }
 
 export const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
-  const customerId = `cust_${new Date().getTime()}_${Math.random().toString(36).substring(2, 9)}`;
+  const customerId = `cust${customer.phone}`;
   
+  // Check if a customer with this ID (phone number) already exists
+  const existingCustomerDoc = await getDoc(doc(db, 'customers', customerId));
+  if (existingCustomerDoc.exists()) {
+      throw new Error(`Customer with phone number ${customer.phone} already exists.`);
+  }
+
   const newCustomerData = {
       ...customer,
       id: customerId,
