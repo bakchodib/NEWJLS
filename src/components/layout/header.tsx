@@ -5,11 +5,12 @@ import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, User, Shield, Briefcase, ChevronsUpDown, Building, Check, Settings } from 'lucide-react';
+import { LogOut, User, Shield, Briefcase, ChevronsUpDown, Building, Check, Settings, Sun, Moon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { Business } from '@/types';
 import Link from 'next/link';
+import { useTheme } from 'next-themes';
 
 const getTitleFromPath = (path: string) => {
   if (path.includes('/business/create')) return 'Create New Business';
@@ -28,6 +29,22 @@ const getTitleFromPath = (path: string) => {
   if (path.includes('/users')) return 'User Management';
   return 'JLS FINACE LTD';
 };
+
+const ThemeToggle = () => {
+    const { setTheme, theme } = useTheme();
+
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+        >
+            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+        </Button>
+    )
+}
 
 const BusinessSwitcher = () => {
     const { businesses, selectedBusiness, setSelectedBusiness, role } = useAuth();
@@ -100,8 +117,9 @@ export function Header({children}: {children?: React.ReactNode}) {
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
       {children}
       <h1 className="text-xl font-semibold md:text-2xl">{title}</h1>
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-2">
         <BusinessSwitcher />
+        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
