@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { Customer, Loan } from '@/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -33,7 +33,7 @@ export default function EditLoanPage() {
   const { id } = params;
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loan, setLoan] = useState<Loan | null>(null);
-  const { role, loading } = useAuth();
+  const { role, loading, selectedBusiness } = useAuth();
   const [pageLoading, setPageLoading] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -46,6 +46,36 @@ export default function EditLoanPage() {
       processingFee: 5,
     },
   });
+  
+  const fetchData = useCallback(async () => {
+    if (!id || typeof id !== 'string' || !selectedBusiness?.id) return;
+    try {
+        setPageLoading(true);
+        const [fetchedCustomers, foundLoan] = await Promise.all([
+            getCustomers(selectedBusiness.id),
+            getLoanById(selectedBusiness.id, id as string)
+        ]);
+
+        setCustomers(fetchedCustomers);
+
+        if (foundLoan) {
+            if (foundLoan.status === 'Closed') {
+                 toast({ title: 'Cannot Edit', description: 'Closed loans cannot be edited.', variant: 'destructive' });
+                 router.back();
+                 return;
+            }
+            setLoan(foundLoan);
+            form.reset(foundLoan);
+        } else if(id) {
+            toast({ title: 'Not Found', description: 'Loan not found.', variant: 'destructive' });
+            router.replace('/loans/applications');
+        }
+    } catch(error) {
+        toast({ title: 'Error', description: 'Failed to load data.', variant: 'destructive' });
+    } finally {
+        setPageLoading(false);
+    }
+  }, [id, selectedBusiness, toast, form, router]);
 
   useEffect(() => {
     if (!loading && role !== 'admin') {
@@ -53,40 +83,11 @@ export default function EditLoanPage() {
       router.replace('/dashboard');
     }
     
-    const fetchData = async () => {
-        try {
-            setPageLoading(true);
-            const [fetchedCustomers, foundLoan] = await Promise.all([
-                getCustomers(),
-                id ? getLoanById(id as string) : Promise.resolve(null)
-            ]);
-
-            setCustomers(fetchedCustomers);
-
-            if (foundLoan) {
-                if (foundLoan.status === 'Closed') {
-                     toast({ title: 'Cannot Edit', description: 'Closed loans cannot be edited.', variant: 'destructive' });
-                     router.back();
-                     return;
-                }
-                setLoan(foundLoan);
-                form.reset(foundLoan);
-            } else if(id) {
-                toast({ title: 'Not Found', description: 'Loan not found.', variant: 'destructive' });
-                router.replace('/loans/applications');
-            }
-        } catch(error) {
-            toast({ title: 'Error', description: 'Failed to load data.', variant: 'destructive' });
-        } finally {
-            setPageLoading(false);
-        }
-    };
-
-    if (role === 'admin') {
+    if (role === 'admin' && selectedBusiness) {
         fetchData();
     }
 
-  }, [id, role, loading, router, toast, form]);
+  }, [id, role, loading, router, toast, form, selectedBusiness, fetchData]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!loan) return;
