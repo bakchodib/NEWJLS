@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { getLoanById, updateLoan, getCustomerById, prepayLoan, topupLoan, closeLoan } from '@/lib/storage';
+import { getLoanById, updateLoan, getCustomerById, prepayLoan, topupLoan, closeLoan, sendWhatsappMessage } from '@/lib/storage';
 import type { Loan, EMI, Customer } from '@/types';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -33,23 +33,6 @@ const topupSchema = z.object({
   newTenure: z.coerce.number().optional(),
 });
 
-
-function WhatsappPreview({ open, onOpenChange, message, businessName }: { open: boolean, onOpenChange: (open: boolean) => void, message: string, businessName?: string }) {
-    if (!open) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => onOpenChange(false)}>
-            <div className="bg-white dark:bg-card rounded-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-                <h3 className="font-bold text-lg mb-2 flex items-center gap-2"><MessageCircle className="text-green-500"/>WhatsApp Preview</h3>
-                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md text-sm">
-                    <p className="font-bold">{businessName || 'JLS FINACE LTD'} Bot</p>
-                    <p>{message}</p>
-                </div>
-                <Button className="w-full mt-4" onClick={() => onOpenChange(false)}>Close</Button>
-            </div>
-        </div>
-    );
-}
 
 // Helper: Load image as Base64
 function loadImage(url: string): Promise<string> {
@@ -187,7 +170,6 @@ async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[
 export default function LoanDetailsPage() {
   const [loan, setLoan] = useState<Loan | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [whatsappPreview, setWhatsappPreview] = useState({ open: false, message: '' });
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
 
   const params = useParams();
@@ -221,7 +203,7 @@ export default function LoanDetailsPage() {
 
 
   const handleCollectEmi = async (emiId: string) => {
-    if (!loan) return;
+    if (!loan || !customer || !selectedBusiness) return;
     
     let collectedEmi: EMI | undefined;
     const emiIndex = loan.emis.findIndex(emi => emi.id === emiId);
@@ -254,12 +236,18 @@ export default function LoanDetailsPage() {
         await fetchLoanDetails(loan.id); // Refresh data
         toast({ title: 'Success', description: `EMI ${emiIndex + 1} marked as paid.` });
         
-        if (collectedEmi) {
-            setWhatsappPreview({
-                open: true,
-                message: `Dear ${loan.customerName}, your EMI payment of ${formatCurrency(collectedEmi.amount)} for loan ${loan.id} has been received. Thank you.`
-            });
+        if (collectedEmi && selectedBusiness.fast2smsApiKey) {
+            const message = `Dear ${loan.customerName}, your EMI payment of ${formatCurrency(collectedEmi.amount)} for loan ${loan.id} has been received. Thank you. - ${selectedBusiness.name}`;
+            const result = await sendWhatsappMessage(selectedBusiness.fast2smsApiKey, customer.phone, message);
+             if (result.success) {
+                toast({ title: 'WhatsApp Sent', description: 'Payment confirmation sent to customer.' });
+            } else {
+                toast({ title: 'WhatsApp Failed', description: result.reason, variant: 'destructive' });
+            }
+        } else if (collectedEmi) {
+             toast({ title: 'WhatsApp Skipped', description: 'API key not configured for this business.', variant: 'destructive' });
         }
+
     } catch (error) {
         toast({ title: 'Error', description: "Failed to update EMI status.", variant: "destructive" });
     }
@@ -612,12 +600,6 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   return (
     <TooltipProvider>
     <div className="flex flex-col gap-6">
-      <WhatsappPreview 
-        open={whatsappPreview.open} 
-        onOpenChange={(open) => setWhatsappPreview({ open, message: '' })} 
-        message={whatsappPreview.message}
-        businessName={selectedBusiness.name}
-      />
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">

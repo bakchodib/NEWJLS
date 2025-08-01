@@ -14,9 +14,11 @@ import { useAuth } from '@/contexts/auth-context';
 import { useEffect, useState } from 'react';
 import { getBusinessById, updateBusiness } from '@/lib/storage';
 import type { Business } from '@/types';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   name: z.string().min(3, { message: 'Business name must be at least 3 characters.' }),
+  fast2smsApiKey: z.string().optional(),
 });
 
 export default function EditBusinessPage() {
@@ -30,7 +32,7 @@ export default function EditBusinessPage() {
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '' },
+    defaultValues: { name: '', fast2smsApiKey: '' },
   });
 
   useEffect(() => {
@@ -45,7 +47,10 @@ export default function EditBusinessPage() {
             const foundBusiness = await getBusinessById(id);
             if (foundBusiness && foundBusiness.ownerId === user?.uid) {
                 setBusiness(foundBusiness);
-                form.reset({ name: foundBusiness.name });
+                form.reset({ 
+                    name: foundBusiness.name,
+                    fast2smsApiKey: foundBusiness.fast2smsApiKey || '' 
+                });
             } else {
                  toast({ title: 'Not Found', description: 'Business not found or you do not have permission to edit it.', variant: 'destructive' });
                  router.replace('/business');
@@ -64,13 +69,17 @@ export default function EditBusinessPage() {
     
     setIsSubmitting(true);
     try {
-        const updatedBusiness = { ...business, name: values.name };
+        const updatedBusiness = { 
+            ...business, 
+            name: values.name,
+            fast2smsApiKey: values.fast2smsApiKey,
+        };
         await updateBusiness(updatedBusiness);
         await refreshBusinesses(); // Refresh context data
         
         toast({
           title: 'Business Updated!',
-          description: `The business name has been changed to ${values.name}.`,
+          description: `The business details have been successfully updated.`,
         });
         router.push('/business');
 
@@ -94,7 +103,7 @@ export default function EditBusinessPage() {
       <Card>
         <CardHeader>
           <CardTitle>Edit Business</CardTitle>
-          <CardDescription>Update the name for your business: {business.name}.</CardDescription>
+          <CardDescription>Update the details for your business: {business.name}.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -112,6 +121,26 @@ export default function EditBusinessPage() {
                   </FormItem>
                 )}
               />
+
+              <Separator />
+
+              <div>
+                  <h3 className="text-lg font-medium mb-2">WhatsApp API Settings</h3>
+                   <FormField
+                    control={form.control}
+                    name="fast2smsApiKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fast2SMS API Key</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your Fast2SMS authorization key" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              </div>
+
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </Button>

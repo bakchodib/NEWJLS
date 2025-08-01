@@ -5,6 +5,7 @@ export interface Business {
   id: string;
   name: string;
   ownerId: string; // UID of the admin who created it
+  fast2smsApiKey?: string;
 }
 
 export interface Customer {

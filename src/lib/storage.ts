@@ -35,7 +35,9 @@ export const getBusinessById = async (businessId: string): Promise<Business | nu
 
 export const updateBusiness = async (business: Business): Promise<void> => {
     const businessDoc = doc(db, 'businesses', business.id);
-    await updateDoc(businessDoc, { name: business.name });
+    // Make sure we don't try to save an `id` field inside the document
+    const { id, ...businessData } = business;
+    await updateDoc(businessDoc, businessData);
 }
 
 export const deleteBusiness = async (businessId: string): Promise<void> => {
@@ -68,7 +70,8 @@ export const deleteBusiness = async (businessId: string): Promise<void> => {
 export const getCustomers = async (businessId: string): Promise<Customer[]> => {
   const q = query(customersCollection, where("businessId", "==", businessId));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
+  const customers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
+  return customers.sort((a, b) => a.name.localeCompare(b.name));
 };
 
 export const getAvailableCustomers = async (businessId: string): Promise<Customer[]> => {
@@ -80,7 +83,8 @@ export const getAvailableCustomers = async (businessId: string): Promise<Custome
     const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
     const customerIdsWithActiveLoans = new Set(loansSnapshot.docs.map(loan => loan.data().customerId));
 
-    return customers.filter(customer => !customerIdsWithActiveLoans.has(customer.id));
+    const availableCustomers = customers.filter(customer => !customerIdsWithActiveLoans.has(customer.id));
+    return availableCustomers.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
@@ -130,7 +134,8 @@ export const deleteCustomer = async (businessId: string, customerId: string): Pr
 export const getLoans = async (businessId: string): Promise<Loan[]> => {
     const q = query(loansCollection, where("businessId", "==", businessId));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+    const loans = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+    return loans.sort((a,b) => (b.disbursalDate || '').localeCompare(a.disbursalDate || ''));
 };
 
 export const getLoanById = async (businessId: string, loanId: string): Promise<Loan | null> => {
@@ -145,7 +150,7 @@ export const getLoanById = async (businessId: string, loanId: string): Promise<L
 export const getCustomerById = async (businessId: string, customerId: string): Promise<Customer | null> => {
     const customerDoc = await getDoc(doc(db, 'customers', customerId));
     if (customerDoc.exists() && customerDoc.data().businessId === businessId) {
-        return { id: customerDoc.id, ...customerDoc.data() } as Customer;
+        return { id: customerDoc.id, ...doc.data() } as Customer;
     }
     return null;
 }
@@ -389,3 +394,37 @@ export const importBusinessData = async (data: { customers: Customer[], loans: L
 
     await batch.commit();
 };
+
+export const sendWhatsappMessage = async (apiKey: string, customerNumber: string, message: string) => {
+    if (!apiKey) {
+        console.warn("Fast2SMS API Key is not configured. Skipping WhatsApp message.");
+        return { success: false, reason: "API Key not configured." };
+    }
+    
+    try {
+        const response = await fetch("https://www.fast2sms.com/dev/bulk-whatsapp", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                authorization: apiKey,
+                message: message,
+                numbers: customerNumber,
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.return === true) {
+            console.log("WhatsApp message sent successfully:", result);
+            return { success: true, result };
+        } else {
+            console.error("Failed to send WhatsApp message:", result);
+            return { success: false, reason: result.message || "Unknown error" };
+        }
+    } catch (error) {
+        console.error("Error sending WhatsApp message:", error);
+        return { success: false, reason: (error as Error).message };
+    }
+}

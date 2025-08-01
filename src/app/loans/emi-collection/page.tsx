@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { getLoans, getCustomers, updateLoan, getLoanById } from '@/lib/storage';
+import { getLoans, getCustomers, updateLoan, getLoanById, sendWhatsappMessage } from '@/lib/storage';
 import type { Loan, Customer, EMI } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,23 +22,6 @@ interface MonthlyEmi extends EMI {
   customer: Customer;
 }
 
-function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpenChange: (open: boolean) => void, message: string }) {
-    if (!open) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => onOpenChange(false)}>
-            <div className="bg-white dark:bg-card rounded-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-                <h3 className="font-bold text-lg mb-2 flex items-center gap-2"><MessageCircle className="text-green-500"/>WhatsApp Preview</h3>
-                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md text-sm">
-                    <p className="font-bold">JLS FINACE LTD Bot</p>
-                    <p>{message}</p>
-                </div>
-                <Button className="w-full mt-4" onClick={() => onOpenChange(false)}>Close</Button>
-            </div>
-        </div>
-    );
-}
-
 export default function EmiCollectionPage() {
   const [monthlyEmis, setMonthlyEmis] = useState<MonthlyEmi[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -46,7 +29,6 @@ export default function EmiCollectionPage() {
   const { role, loading, selectedBusiness } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const [whatsappPreview, setWhatsappPreview] = useState({ open: false, message: '' });
 
   const years = useMemo(() => {
     const currentYear = getYear(new Date());
@@ -136,6 +118,11 @@ export default function EmiCollectionPage() {
         toast({ title: 'Error', description: 'Loan not found.', variant: 'destructive' });
         return;
     }
+    const emiCustomer = monthlyEmis.find(e => e.id === emiId)?.customer;
+    if (!emiCustomer) {
+        toast({ title: 'Error', description: 'Customer for EMI not found.', variant: 'destructive' });
+        return;
+    }
 
     let collectedEmi: EMI | undefined;
     const emiIndex = loan.emis.findIndex(emi => emi.id === emiId);
@@ -175,11 +162,16 @@ export default function EmiCollectionPage() {
             description: `Successfully collected ${collectedEmi?.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} from ${loan.customerName}.`,
         });
 
-         if (collectedEmi) {
-            setWhatsappPreview({
-                open: true,
-                message: `Dear ${loan.customerName}, your EMI payment of ${collectedEmi.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} for loan ${loan.id} has been received. Thank you.`
-            });
+        if (collectedEmi && selectedBusiness.fast2smsApiKey) {
+            const message = `Dear ${loan.customerName}, your EMI payment of ${collectedEmi.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} for loan ${loan.id} has been received. Thank you. - ${selectedBusiness.name}`;
+            const result = await sendWhatsappMessage(selectedBusiness.fast2smsApiKey, emiCustomer.phone, message);
+            if (result.success) {
+                toast({ title: 'WhatsApp Sent', description: 'Payment confirmation sent to customer.' });
+            } else {
+                toast({ title: 'WhatsApp Failed', description: result.reason, variant: 'destructive' });
+            }
+        } else if (collectedEmi) {
+            toast({ title: 'WhatsApp Skipped', description: 'API key not configured for this business.', variant: 'destructive' });
         }
     } catch (error) {
         toast({ title: 'Error', description: 'Failed to collect EMI.', variant: 'destructive' });
@@ -233,11 +225,6 @@ export default function EmiCollectionPage() {
 
   return (
     <div className="flex flex-col gap-4">
-       <WhatsappPreview 
-        open={whatsappPreview.open} 
-        onOpenChange={(open) => setWhatsappPreview({ open, message: '' })} 
-        message={whatsappPreview.message}
-      />
 
        <div className="grid gap-4 md:grid-cols-3">
           <Card>
