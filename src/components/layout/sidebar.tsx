@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Briefcase,
   Building,
+  Settings,
 } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -34,6 +35,7 @@ const adminNavItems = [
     icon: Building,
     subItems: [
       { href: '/business/create', label: 'Create Business', icon: Briefcase },
+      { href: '/business', label: 'Manage Businesses', icon: Settings },
     ],
   },
   {
@@ -94,6 +96,11 @@ export function Sidebar() {
   
   const isNavItemActive = (item) => {
     if (item.subItems) {
+      // Check if the current path starts with any of the sub-item hrefs.
+      // Special case for '/business' to avoid matching '/business/create'
+      if(item.label === 'Business') {
+        return item.subItems.some(sub => pathname === sub.href || pathname.startsWith(sub.href + '/'));
+      }
       return item.subItems.some(sub => pathname.startsWith(sub.href));
     }
     // Exact match for dashboard and users

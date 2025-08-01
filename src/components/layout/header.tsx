@@ -5,13 +5,16 @@ import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, User, Shield, Briefcase, ChevronsUpDown, Building, Check } from 'lucide-react';
+import { LogOut, User, Shield, Briefcase, ChevronsUpDown, Building, Check, Settings } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { Business } from '@/types';
+import Link from 'next/link';
 
 const getTitleFromPath = (path: string) => {
   if (path.includes('/business/create')) return 'Create New Business';
+  if (path.includes('/business/edit')) return 'Edit Business';
+  if (path.includes('/business')) return 'Manage Businesses';
   if (path.includes('/customers/register')) return 'Register Customer';
   if (path.includes('/customers/edit')) return 'Edit Customer';
   if (path.includes('/customers')) return 'Customers';
@@ -29,7 +32,7 @@ const getTitleFromPath = (path: string) => {
 const BusinessSwitcher = () => {
     const { businesses, selectedBusiness, setSelectedBusiness } = useAuth();
 
-    if (businesses.length <= 1) return null;
+    if (businesses.length === 0) return null;
 
     return (
         <DropdownMenu>
@@ -52,6 +55,13 @@ const BusinessSwitcher = () => {
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuGroup>
+                 <DropdownMenuSeparator />
+                 <DropdownMenuItem asChild>
+                    <Link href="/business">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Manage Businesses
+                    </Link>
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     )

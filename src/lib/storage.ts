@@ -1,5 +1,5 @@
 
-import type { Customer, Loan, LoanStatus, EMI } from '@/types';
+import type { Customer, Loan, LoanStatus, EMI, Business } from '@/types';
 import { db } from './firebase';
 import { 
     collection, 
@@ -19,8 +19,51 @@ import * as xlsx from 'xlsx';
 // References to top-level collections
 const customersCollection = collection(db, 'customers');
 const loansCollection = collection(db, 'loans');
+const businessesCollection = collection(db, 'businesses');
 
 
+// Business Functions
+export const getBusinessById = async (businessId: string): Promise<Business | null> => {
+    const docRef = doc(db, 'businesses', businessId);
+    const docSnap = await getDoc(docRef);
+    if(docSnap.exists()){
+        return {id: docSnap.id, ...docSnap.data()} as Business;
+    }
+    return null;
+}
+
+export const updateBusiness = async (business: Business): Promise<void> => {
+    const businessDoc = doc(db, 'businesses', business.id);
+    await updateDoc(businessDoc, { name: business.name });
+}
+
+export const deleteBusiness = async (businessId: string): Promise<void> => {
+    const batch = writeBatch(db);
+
+    // 1. Delete all loans for the business
+    const loansQuery = query(loansCollection, where("businessId", "==", businessId));
+    const loansSnapshot = await getDocs(loansQuery);
+    loansSnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    // 2. Delete all customers for the business
+    const customersQuery = query(customersCollection, where("businessId", "==", businessId));
+    const customersSnapshot = await getDocs(customersQuery);
+    customersSnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    // 3. Delete the business itself
+    const businessDoc = doc(db, 'businesses', businessId);
+    batch.delete(businessDoc);
+
+    // Commit the batch
+    await batch.commit();
+}
+
+
+// Customer Functions
 export const getCustomers = async (businessId: string): Promise<Customer[]> => {
   const q = query(customersCollection, where("businessId", "==", businessId));
   const querySnapshot = await getDocs(q);

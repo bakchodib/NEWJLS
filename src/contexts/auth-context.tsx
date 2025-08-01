@@ -165,6 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const currentSelected = getSelectedBusinessFromStorage();
           if (!currentSelected || !fetchedBusinesses.some(b => b.id === currentSelected.id)) {
               setSelectedBusiness(fetchedBusinesses[0] || null);
+          } else {
+             // ensure selected business state is in sync with latest from db
+             const updatedSelected = fetchedBusinesses.find(b => b.id === currentSelected.id);
+             setSelectedBusiness(updatedSelected || fetchedBusinesses[0] || null);
           }
 
       } catch (error) {
