@@ -133,10 +133,15 @@ export const deleteCustomer = async (businessId: string, customerId: string): Pr
 
 // Loan Functions
 export const getLoans = async (businessId: string): Promise<Loan[]> => {
-    const q = query(loansCollection, where("businessId", "==", businessId), orderBy("disbursalDate", "desc"));
+    const q = query(loansCollection, where("businessId", "==", businessId));
     const querySnapshot = await getDocs(q);
     const loans = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
-    return loans;
+    // Sort client-side
+    return loans.sort((a, b) => {
+        const dateA = a.disbursalDate ? new Date(a.disbursalDate).getTime() : 0;
+        const dateB = b.disbursalDate ? new Date(b.disbursalDate).getTime() : 0;
+        return dateB - dateA;
+    });
 };
 
 export const getLoanById = async (businessId: string, loanId: string): Promise<Loan | null> => {
