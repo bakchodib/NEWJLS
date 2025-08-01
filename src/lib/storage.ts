@@ -92,7 +92,7 @@ export const deleteCustomer = async (businessId: string, customerId: string): Pr
 
 // Loan Functions
 export const getLoans = async (businessId: string): Promise<Loan[]> => {
-    const q = query(loansCollection, where("businessId", "==", businessId), orderBy("id"));
+    const q = query(loansCollection, where("businessId", "==", businessId));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
 };
@@ -116,13 +116,20 @@ export const getCustomerById = async (businessId: string, customerId: string): P
 
 
 export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate' | 'principalRemaining'>): Promise<Loan> => {
-    const lastLoanQuery = query(loansCollection, where("businessId", "==", loan.businessId), orderBy("id", "desc"), limit(1));
+    const lastLoanQuery = query(loansCollection, where("businessId", "==", loan.businessId), limit(1));
     const lastLoanSnapshot = await getDocs(lastLoanQuery);
 
     let newLoanId = 1000100;
     if (!lastLoanSnapshot.empty) {
-        const lastLoanId = parseInt(lastLoanSnapshot.docs[0].id, 10);
-        newLoanId = lastLoanId + 100;
+        // Find the highest ID from all loans in the business to be safe
+        const allLoansSnapshot = await getDocs(query(loansCollection, where("businessId", "==", loan.businessId)));
+        if(!allLoansSnapshot.empty) {
+            const maxId = allLoansSnapshot.docs.reduce((max, doc) => {
+                const currentId = parseInt(doc.id, 10);
+                return currentId > max ? currentId : max;
+            }, 0);
+            newLoanId = maxId + 100;
+        }
     }
 
     const newLoanData: Loan = { 
