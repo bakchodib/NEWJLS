@@ -34,9 +34,7 @@ const formSchema = z.object({
   
   // KYC Fields
   aadharNumber: z.string().regex(/^\d{12}$/, { message: 'Aadhar number must be 12 digits.' }),
-  aadharImage: fileSchema,
   panNumber: z.string().min(5, {message: 'PAN/Voter ID must be at least 5 characters.'}),
-  panImage: fileSchema,
 
   // Guarantor Fields
   guarantorName: z.string().min(2, { message: 'Guarantor name must be at least 2 characters.' }),
@@ -57,9 +55,7 @@ export default function RegisterCustomerPage() {
       address: '',
       customerPhoto: undefined,
       aadharNumber: '',
-      aadharImage: undefined,
       panNumber: '',
-      panImage: undefined,
       guarantorName: '',
       guarantorPhone: '',
     },
@@ -88,12 +84,10 @@ export default function RegisterCustomerPage() {
     }
 
     setIsSubmitting(true);
-    toast({ title: 'Processing Images...', description: 'Please wait while we prepare the documents.' });
+    toast({ title: 'Processing...', description: 'Please wait while we register the customer.' });
 
     try {
         const customerPhotoDataUri = await fileToDataUri(values.customerPhoto[0]);
-        const aadharImageDataUri = await fileToDataUri(values.aadharImage[0]);
-        const panImageDataUri = await fileToDataUri(values.panImage[0]);
 
         const newCustomer = {
           businessId: selectedBusiness.id,
@@ -102,9 +96,7 @@ export default function RegisterCustomerPage() {
           address: values.address,
           customerPhoto: customerPhotoDataUri,
           aadharNumber: values.aadharNumber,
-          aadharImage: aadharImageDataUri,
           panNumber: values.panNumber,
-          panImage: panImageDataUri,
           guarantorName: values.guarantorName,
           guarantorPhone: values.guarantorPhone,
         };
@@ -218,20 +210,6 @@ export default function RegisterCustomerPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="aadharImage"
-                  render={({ field: { onChange, value, ...rest } }) => (
-                      <FormItem>
-                          <FormLabel>Aadhar Card Photo</FormLabel>
-                          <FormControl>
-                              <Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} />
-                          </FormControl>
-                          <FormDescription>Upload a photo of the Aadhar Card.</FormDescription>
-                          <FormMessage />
-                      </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="panNumber"
                   render={({ field }) => (
                     <FormItem>
@@ -241,20 +219,6 @@ export default function RegisterCustomerPage() {
                       </FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="panImage"
-                  render={({ field: { onChange, value, ...rest } }) => (
-                      <FormItem>
-                          <FormLabel>PAN / Voter ID Photo</FormLabel>
-                          <FormControl>
-                              <Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} />
-                          </FormControl>
-                          <FormDescription>Upload a photo of the PAN or Voter ID Card.</FormDescription>
-                          <FormMessage />
-                      </FormItem>
                   )}
                 />
               </div>

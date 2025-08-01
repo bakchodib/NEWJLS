@@ -13,7 +13,8 @@ import {
     query,
     where,
     writeBatch,
-    setDoc
+    setDoc,
+    orderBy
 } from 'firebase/firestore';
 import * as xlsx from 'xlsx';
 
@@ -132,10 +133,10 @@ export const deleteCustomer = async (businessId: string, customerId: string): Pr
 
 // Loan Functions
 export const getLoans = async (businessId: string): Promise<Loan[]> => {
-    const q = query(loansCollection, where("businessId", "==", businessId));
+    const q = query(loansCollection, where("businessId", "==", businessId), orderBy("disbursalDate", "desc"));
     const querySnapshot = await getDocs(q);
     const loans = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
-    return loans.sort((a,b) => (b.disbursalDate || '').localeCompare(a.disbursalDate || ''));
+    return loans;
 };
 
 export const getLoanById = async (businessId: string, loanId: string): Promise<Loan | null> => {

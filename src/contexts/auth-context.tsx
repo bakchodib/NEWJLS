@@ -5,7 +5,7 @@ import { createContext, useState, useEffect, useContext, ReactNode, useCallback 
 import { useRouter, usePathname } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs, setDoc, writeBatch, or } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc, writeBatch, or, updateDoc } from 'firebase/firestore';
 import type { Business, Customer } from '@/types';
 
 type Role = 'admin' | 'agent' | 'customer';
@@ -59,9 +59,7 @@ const createDummyCustomers = async (businessId: string) => {
             address: '123 Cricket Lane, Mumbai',
             customerPhoto: 'https://placehold.co/100x100.png',
             aadharNumber: '123456789012',
-            aadharImage: 'https://placehold.co/400x250.png',
             panNumber: 'ABCDE1234F',
-            panImage: 'https://placehold.co/400x250.png',
             guarantorName: 'Virat Kohli',
             guarantorPhone: '9876543211'
         },
@@ -72,9 +70,7 @@ const createDummyCustomers = async (businessId: string) => {
             address: '456 Ganga Nagar, Jaipur',
             customerPhoto: 'https://placehold.co/100x100.png',
             aadharNumber: '234567890123',
-            aadharImage: 'https://placehold.co/400x250.png',
             panNumber: 'FGHIJ5678K',
-            panImage: 'https://placehold.co/400x250.png',
             guarantorName: 'Geeta Kumari',
             guarantorPhone: '9876543213'
         },
@@ -85,9 +81,7 @@ const createDummyCustomers = async (businessId: string) => {
             address: '789 Yamuna Vihar, Delhi',
             customerPhoto: 'https://placehold.co/100x100.png',
             aadharNumber: '345678901234',
-            aadharImage: 'https://placehold.co/400x250.png',
             panNumber: 'LMNOP9012L',
-            panImage: 'https://placehold.co/400x250.png',
             guarantorName: 'Sumit Singh',
             guarantorPhone: '9876543215'
         },
@@ -98,9 +92,7 @@ const createDummyCustomers = async (businessId: string) => {
             address: '101 Sabarmati Road, Ahmedabad',
             customerPhoto: 'https://placehold.co/100x100.png',
             aadharNumber: '456789012345',
-            aadharImage: 'https://placehold.co/400x250.png',
             panNumber: 'QRSTU3456M',
-            panImage: 'https://placehold.co/400x250.png',
             guarantorName: 'Rina Patel',
             guarantorPhone: '9876543217'
         },
@@ -111,9 +103,7 @@ const createDummyCustomers = async (businessId: string) => {
             address: '212 Golden Temple Road, Amritsar',
             customerPhoto: 'https://placehold.co/100x100.png',
             aadharNumber: '567890123456',
-            aadharImage: 'https://placehold.co/400x250.png',
             panNumber: 'VWXYZ7890N',
-            panImage: 'https://placehold.co/400x250.png',
             guarantorName: 'Manpreet Kaur',
             guarantorPhone: '9876543219'
         }

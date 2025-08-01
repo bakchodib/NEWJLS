@@ -18,9 +18,7 @@ export interface Customer {
   
   // KYC Details
   aadharNumber: string;
-  aadharImage: string; // Base64 data URI
   panNumber: string;
-  panImage: string; // Base64 data URI
 
   guarantorName: string;
   guarantorPhone: string;
