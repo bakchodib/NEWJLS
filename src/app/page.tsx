@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Briefcase, Landmark, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { ArrowRight, Briefcase, Landmark, ShieldCheck, Users, Wallet, Laptop, Smartphone, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,7 @@ import StarBorder from '@/components/ui/StarBorder';
 import TestimonialCard from '@/components/ui/TestimonialCard';
 import '@/components/ui/TestimonialMarquee.css';
 import AnimatedCounter from '@/components/ui/AnimatedCounter';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 export default function LandingPage() {
@@ -117,6 +118,39 @@ export default function LandingPage() {
       handle: '@nehagupta',
       avatar: 'https://placehold.co/48x48.png',
       testimonial: "I'm really impressed with the top-up loan functionality. It's seamless and easy to manage."
+    }
+  ];
+
+  const installationSteps = [
+    {
+      platform: "Desktop (Chrome, Edge)",
+      icon: <Laptop className="h-6 w-6 text-primary" />,
+      steps: [
+        "Open the application in your web browser.",
+        "Look for an Install icon in the address bar, usually on the right side. It might look like a computer screen with a downward arrow.",
+        "Click the icon and then click 'Install' in the prompt that appears.",
+        "The app will now be available on your desktop or in your start menu."
+      ]
+    },
+    {
+      platform: "Mobile (Android with Chrome)",
+      icon: <Smartphone className="h-6 w-6 text-primary" />,
+      steps: [
+        "Open the application website in your Chrome browser.",
+        "Tap the three-dot menu icon in the top-right corner.",
+        "From the menu, select 'Install app' or 'Add to Home screen'.",
+        "Follow the on-screen instructions to add the app to your home screen."
+      ]
+    },
+    {
+      platform: "Mobile (iOS with Safari)",
+      icon: <Smartphone className="h-6 w-6 text-primary" />,
+      steps: [
+         "Open the application website in your Safari browser.",
+         "Tap the Share icon (a square with an arrow pointing up) at the bottom of the screen.",
+         "Scroll down and tap on 'Add to Home Screen'.",
+         "Confirm by tapping 'Add' in the top-right corner."
+      ]
     }
   ];
 
@@ -244,8 +278,40 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Part 4: Testimonials Section */}
-        <section id="testimonials" className="py-20 bg-muted/20 relative">
+        {/* Part 4: Installation Instructions Section */}
+        <section id="install-app" className="py-20 bg-muted/20">
+            <div className="container mx-auto px-4">
+                <div className="text-center mb-12">
+                    <h2 className="text-3xl md:text-4xl font-bold">Install Our App</h2>
+                    <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto">Get a native app experience. Access your data anytime, even offline, by installing our app on your device.</p>
+                </div>
+                <div className="max-w-3xl mx-auto">
+                    <Accordion type="single" collapsible className="w-full" defaultValue="item-0">
+                        {installationSteps.map((item, index) => (
+                             <AccordionItem value={`item-${index}`} key={index}>
+                                <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                                    <div className="flex items-center gap-3">
+                                        {item.icon}
+                                        {item.platform}
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <ol className="list-decimal list-inside space-y-2 pl-4 text-muted-foreground">
+                                       {item.steps.map((step, stepIndex) => (
+                                         <li key={stepIndex}>{step}</li>
+                                       ))}
+                                    </ol>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                </div>
+            </div>
+        </section>
+
+
+        {/* Part 5: Testimonials Section */}
+        <section id="testimonials" className="py-20 relative">
           <div className="container mx-auto px-4">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl font-bold">Loved by Finance Professionals</h2>
@@ -267,12 +333,12 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
-             <div className="absolute inset-0 bg-gradient-to-r from-muted/20 via-transparent to-muted/20 pointer-events-none"></div>
+             <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background pointer-events-none"></div>
           </div>
         </section>
 
 
-        {/* Part 5: Final CTA */}
+        {/* Part 6: Final CTA */}
         <section id="cta" className="py-20">
             <div className="container mx-auto px-4 text-center">
                 <h2 className="text-3xl md:text-4xl font-bold">Ready to Transform Your Business?</h2>
@@ -297,3 +363,5 @@ export default function LandingPage() {
     </div>
   );
 }
+
+    
