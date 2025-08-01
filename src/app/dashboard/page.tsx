@@ -2,18 +2,23 @@
 'use client';
 
 import { useAuth } from '@/contexts/auth-context';
-import { getCustomers, getLoans } from '@/lib/storage';
-import { useEffect, useState, useCallback } from 'react';
-import type { Customer, Loan, EMI } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Landmark, DollarSign, AlertCircle, CheckCircle, Hourglass } from 'lucide-react';
+import { getCustomers, getLoans, exportBusinessData, importBusinessData } from '@/lib/storage';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import type { Customer, Loan, EMI, Business } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Users, Landmark, DollarSign, AlertCircle, CheckCircle, Hourglass, Import, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
-const AdminDashboard = ({ stats }: { stats: any }) => (
+const AdminDashboard = ({ stats, onExport, onImport }: { stats: any, onExport: () => void, onImport: () => void }) => (
   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -38,17 +43,7 @@ const AdminDashboard = ({ stats }: { stats: any }) => (
          <Link href="/loans" className="text-xs text-muted-foreground underline">View all loans</Link>
       </CardContent>
     </Card>
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Overdue EMIs</CardTitle>
-        <AlertCircle className="h-4 w-4 text-destructive" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{stats.overdueEmis}</div>
-        <p className="text-xs text-muted-foreground">Action required</p>
-      </CardContent>
-    </Card>
-    <Card>
+     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Actions</CardTitle>
       </CardHeader>
@@ -56,6 +51,15 @@ const AdminDashboard = ({ stats }: { stats: any }) => (
         <Button asChild><Link href="/customers/register">Register New Customer</Link></Button>
         <Button asChild variant="secondary"><Link href="/loans/apply">New Loan Application</Link></Button>
       </CardContent>
+    </Card>
+    <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Import/Export Data</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+            <Button variant="outline" onClick={onExport}><Import className="mr-2 h-4 w-4"/>Export Data</Button>
+            <Button variant="outline" onClick={onImport}><Upload className="mr-2 h-4 w-4"/>Import Data</Button>
+        </CardContent>
     </Card>
   </div>
 );
@@ -134,15 +138,65 @@ const DashboardSkeleton = () => (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card><CardHeader><Skeleton className="h-4 w-3/4"/></CardHeader><CardContent><Skeleton className="h-8 w-1/2"/></CardContent></Card>
         <Card><CardHeader><Skeleton className="h-4 w-3/4"/></CardHeader><CardContent><Skeleton className="h-8 w-1/2"/></CardContent></Card>
-        <Card><CardHeader><Skeleton className="h-4 w-3/4"/></CardHeader><CardContent><Skeleton className="h-8 w-1/2"/></CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-4 w-3/4"/></CardHeader><CardContent className="flex flex-col gap-2"><Skeleton className="h-10 w-full"/><Skeleton className="h-10 w-full"/></CardContent></Card>
         <Card><CardHeader><Skeleton className="h-4 w-3/4"/></CardHeader><CardContent className="flex flex-col gap-2"><Skeleton className="h-10 w-full"/><Skeleton className="h-10 w-full"/></CardContent></Card>
     </div>
 )
 
+const ImportDialog = ({ businesses, onImportConfirm, open, onOpenChange }: { businesses: Business[], onImportConfirm: (file: File, targetBusinessId: string) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
+    const [targetBusinessId, setTargetBusinessId] = useState<string>('');
+    const [file, setFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImport = () => {
+        if(file && targetBusinessId) {
+            onImportConfirm(file, targetBusinessId);
+        }
+    }
+    
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Import Data</DialogTitle>
+                    <DialogDescription>
+                        Import customers and loans from a previously exported JSON file. It's recommended to import into a new, empty business to avoid conflicts.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="import-file">Exported JSON File</Label>
+                        <Input id="import-file" type="file" accept=".json" ref={fileInputRef} onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                    </div>
+                    <div>
+                        <Label>Target Business</Label>
+                        <Select onValueChange={setTargetBusinessId} value={targetBusinessId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a business to import into" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {businesses.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                    <Button onClick={handleImport} disabled={!file || !targetBusinessId}>Start Import</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 export default function DashboardPage() {
-  const { role, loading, selectedBusiness } = useAuth();
+  const { role, loading, selectedBusiness, businesses } = useAuth();
   const [stats, setStats] = useState<any>(null);
+  const { toast } = useToast();
+  const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const fetchStats = useCallback(async () => {
     if (!role || !selectedBusiness?.id) return;
@@ -205,15 +259,50 @@ export default function DashboardPage() {
     }
   }, [role, loading, selectedBusiness, fetchStats]);
 
+  const handleExport = async () => {
+    if (!selectedBusiness) return;
+    setIsExporting(true);
+    toast({ title: 'Exporting...', description: `Preparing data for ${selectedBusiness.name}` });
+    try {
+        const data = await exportBusinessData(selectedBusiness.id);
+        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
+        const link = document.createElement('a');
+        link.href = jsonString;
+        link.download = `${selectedBusiness.name.replace(/\s+/g, '_')}_export_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        toast({ title: 'Export Successful', description: 'Your data has been downloaded.' });
+    } catch (error) {
+        toast({ title: 'Export Failed', description: (error as Error).message, variant: 'destructive' });
+    } finally {
+        setIsExporting(false);
+    }
+  };
+
+  const handleImport = async (file: File, targetBusinessId: string) => {
+    setIsImporting(true);
+    setIsImportDialogOpen(false);
+    toast({ title: 'Importing...', description: 'Please wait while data is being imported.' });
+    try {
+        const fileContent = await file.text();
+        const data = JSON.parse(fileContent);
+        await importBusinessData(data, targetBusinessId);
+        toast({ title: 'Import Successful!', description: 'Data has been imported. Please refresh if you do not see the changes.' });
+    } catch (error) {
+         toast({ title: 'Import Failed', description: (error as Error).message, variant: 'destructive' });
+    } finally {
+        setIsImporting(false);
+    }
+  };
 
   if (loading || !stats) return <DashboardSkeleton />;
 
   return (
     <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Welcome to {selectedBusiness?.name || role}!</h1>
-        {role === 'admin' && <AdminDashboard stats={stats} />}
+        {role === 'admin' && <AdminDashboard stats={stats} onExport={handleExport} onImport={() => setIsImportDialogOpen(true)} />}
         {role === 'agent' && <AgentDashboard stats={stats} />}
         {role === 'customer' && <CustomerDashboard stats={stats} />}
+        {role === 'admin' && <ImportDialog businesses={businesses} onImportConfirm={handleImport} open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} />}
     </div>
   );
 }

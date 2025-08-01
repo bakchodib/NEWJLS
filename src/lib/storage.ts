@@ -12,10 +12,9 @@ import {
     query,
     where,
     writeBatch,
-    orderBy,
-    limit,
     setDoc
 } from 'firebase/firestore';
+import * as xlsx from 'xlsx';
 
 // References to top-level collections
 const customersCollection = collection(db, 'customers');
@@ -41,23 +40,11 @@ export const getAvailableCustomers = async (businessId: string): Promise<Custome
 }
 
 export const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
-  const allCustomersQuery = query(customersCollection, where("businessId", "==", customer.businessId));
-  const allCustomersSnapshot = await getDocs(allCustomersQuery);
-
-  let newCustomerId = 101000;
-  if (!allCustomersSnapshot.empty) {
-    const maxId = allCustomersSnapshot.docs.reduce((max, doc) => {
-        const currentId = parseInt(doc.id, 10);
-        return currentId > max ? currentId : max;
-    }, 0);
-    if(maxId > 0) {
-        newCustomerId = maxId + 100;
-    }
-  }
+  const customerId = `cust_${new Date().getTime()}`;
   
   const newCustomerData = {
       ...customer,
-      id: String(newCustomerId),
+      id: customerId,
   };
 
   const customerDocRef = doc(db, 'customers', newCustomerData.id);
@@ -121,22 +108,11 @@ export const getCustomerById = async (businessId: string, customerId: string): P
 
 
 export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate' | 'principalRemaining'>): Promise<Loan> => {
-    const allLoansSnapshot = await getDocs(query(loansCollection, where("businessId", "==", loan.businessId)));
-    
-    let newLoanId = 1000100;
-    if(!allLoansSnapshot.empty) {
-        const maxId = allLoansSnapshot.docs.reduce((max, doc) => {
-            const currentId = parseInt(doc.id, 10);
-            return currentId > max ? currentId : max;
-        }, 0);
-        if(maxId > 0) {
-            newLoanId = maxId + 100;
-        }
-    }
+    const loanId = `loan_${new Date().getTime()}`;
 
     const newLoanData: Loan = { 
         ...loan,
-        id: String(newLoanId),
+        id: loanId,
         status: 'Pending' as LoanStatus,
         disbursalDate: '', 
         emis: [],
@@ -315,3 +291,57 @@ export const closeLoan = async (businessId: string, loanId: string): Promise<voi
 
     await updateLoan(loan);
 }
+
+// Import/Export Functions
+export const exportBusinessData = async (businessId: string) => {
+    const [customers, loans] = await Promise.all([
+        getCustomers(businessId),
+        getLoans(businessId)
+    ]);
+    return { customers, loans };
+};
+
+
+export const importBusinessData = async (data: { customers: Customer[], loans: Loan[] }, targetBusinessId: string) => {
+    const { customers, loans } = data;
+
+    if (!customers || !loans) {
+        throw new Error("Invalid import file. 'customers' and 'loans' arrays are required.");
+    }
+    
+    const batch = writeBatch(db);
+    const oldToNewCustomerIdMap = new Map<string, string>();
+
+    // Process Customers
+    customers.forEach(customer => {
+        const oldId = customer.id;
+        const newId = `cust_${new Date().getTime()}_${Math.random().toString(36).substring(2, 9)}`;
+        oldToNewCustomerIdMap.set(oldId, newId);
+
+        const newCustomerData = { ...customer, id: newId, businessId: targetBusinessId };
+        const customerDocRef = doc(db, 'customers', newId);
+        batch.set(customerDocRef, newCustomerData);
+    });
+
+    // Process Loans
+    loans.forEach(loan => {
+        const newLoanId = `loan_${new Date().getTime()}_${Math.random().toString(36).substring(2, 9)}`;
+        const newCustomerId = oldToNewCustomerIdMap.get(loan.customerId);
+
+        if (!newCustomerId) {
+            console.warn(`Skipping loan ${loan.id} because its customer ${loan.customerId} was not found in the import file.`);
+            return;
+        }
+
+        const newLoanData = { 
+            ...loan, 
+            id: newLoanId, 
+            businessId: targetBusinessId, 
+            customerId: newCustomerId 
+        };
+        const loanDocRef = doc(db, 'loans', newLoanId);
+        batch.set(loanDocRef, newLoanData);
+    });
+
+    await batch.commit();
+};
