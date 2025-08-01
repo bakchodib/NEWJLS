@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 export const metadata: Metadata = {
   title: 'JLS FINACE LTD',
   description: 'Manage your finances with ease',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
