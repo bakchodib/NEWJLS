@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, KeyRound } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
@@ -20,13 +20,9 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, query, where } 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { Label } from '@/components/ui/label';
+import type { AppUser, Business } from '@/types';
+import { Checkbox } from '@/components/ui/checkbox';
 
-type AppUser = {
-  id: string; // This is the UID from Firebase Auth
-  name: string;
-  email: string;
-  role: 'admin' | 'agent' | 'customer';
-};
 
 const usersCollection = collection(db, 'users');
 
@@ -35,18 +31,67 @@ const newUserSchema = z.object({
   email: z.string().email("Invalid email address."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   role: z.enum(['admin', 'agent']),
+  accessibleBusinessIds: z.array(z.string()).optional(),
 });
 
+const ManageAccessDialog = ({ user, allBusinesses, open, onOpenChange, onSave }: { user: AppUser | null, allBusinesses: Business[], open: boolean, onOpenChange: (open: boolean) => void, onSave: (userId: string, ids: string[]) => void }) => {
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    
+    useEffect(() => {
+        if(user) {
+            setSelectedIds(user.accessibleBusinessIds || []);
+        }
+    }, [user]);
+
+    if (!user) return null;
+
+    const handleToggle = (businessId: string) => {
+        setSelectedIds(prev => prev.includes(businessId) ? prev.filter(id => id !== businessId) : [...prev, businessId]);
+    };
+    
+    const handleSave = () => {
+        onSave(user.id, selectedIds);
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Manage Access for {user.name}</DialogTitle>
+                    <DialogDescription>Select the businesses this user can access.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
+                    {allBusinesses.map(biz => (
+                        <div key={biz.id} className="flex items-center space-x-2">
+                           <Checkbox
+                                id={`biz-${biz.id}`}
+                                checked={selectedIds.includes(biz.id)}
+                                onCheckedChange={() => handleToggle(biz.id)}
+                            />
+                            <Label htmlFor={`biz-${biz.id}`} className="font-normal">{biz.name}</Label>
+                        </div>
+                    ))}
+                </div>
+                 <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                    <Button onClick={handleSave}>Save Changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 export default function UserManagementPage() {
-  const { user, loading } = useAuth();
+  const { user: currentUser, loading, allBusinesses } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [managingAccessFor, setManagingAccessFor] = useState<AppUser | null>(null);
   
   const form = useForm<z.infer<typeof newUserSchema>>({
     resolver: zodResolver(newUserSchema),
-    defaultValues: { name: '', email: '', password: '', role: 'agent' },
+    defaultValues: { name: '', email: '', password: '', role: 'agent', accessibleBusinessIds: [] },
   });
 
   const fetchUsers = useCallback(async () => {
@@ -61,18 +106,18 @@ export default function UserManagementPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!loading && user?.role !== 'admin') {
+    if (!loading && currentUser?.role !== 'admin') {
       toast({ title: 'Unauthorized', description: 'You do not have permission to view this page.', variant: 'destructive' });
       router.replace('/dashboard');
-    } else if (user?.role === 'admin') {
+    } else if (currentUser?.role === 'admin') {
       fetchUsers();
     }
-  }, [user, loading, router, toast, fetchUsers]);
+  }, [currentUser, loading, router, toast, fetchUsers]);
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'agent') => {
-    if (userId === user?.uid) {
+    if (userId === currentUser?.uid) {
         toast({ title: "Action Forbidden", description: "You cannot change your own role.", variant: "destructive" });
-        await fetchUsers(); // Re-fetch to revert the optimistic UI change in the select
+        await fetchUsers();
         return;
     }
     try {
@@ -85,28 +130,35 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleAccessChange = async (userId: string, businessIds: string[]) => {
+      try {
+          const userDoc = doc(db, 'users', userId);
+          await updateDoc(userDoc, { accessibleBusinessIds: businessIds });
+          await fetchUsers();
+          toast({ title: "Access Updated", description: "User's business access has been successfully updated." });
+          setManagingAccessFor(null);
+      } catch (error) {
+          toast({ title: "Update Failed", description: "Could not update business access.", variant: "destructive" });
+      }
+  }
+
   const handleAddUser = async (values: z.infer<typeof newUserSchema>) => {
-      // In a real-world, high-security app, creating users should be done via a trusted backend server or Cloud Function.
-      // For this prototype, we'll allow an admin to do it from the client, assuming the Firestore rules are secure.
       form.formState.isSubmitting = true;
       try {
-        // We use a temporary auth instance for this creation process to not affect the current admin's session.
-        // NOTE: This approach has limitations and is a simplified one for this prototype.
-        // A more robust solution involves a Cloud Function that handles user creation.
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const newUser = userCredential.user;
 
-        // Now, store the user's role and name in Firestore.
         await setDoc(doc(db, 'users', newUser.uid), {
             name: values.name,
             email: values.email,
-            role: values.role
+            role: values.role,
+            accessibleBusinessIds: values.accessibleBusinessIds || [],
         });
 
         toast({ title: "User Created", description: `${values.name} has been added as an ${values.role}.` });
-        await fetchUsers(); // Refresh the user list
-        setIsAddUserOpen(false); // Close the dialog
-        form.reset(); // Reset the form
+        await fetchUsers(); 
+        setIsAddUserOpen(false); 
+        form.reset(); 
       } catch(error: any) {
           let errorMessage = "Could not create user.";
           if (error.code === 'auth/email-already-in-use') {
@@ -120,12 +172,9 @@ export default function UserManagementPage() {
 
   const handleDeleteUser = async (userId: string) => {
     toast({ title: "Action Disabled", description: "User deletion must be handled via a secure backend function to also delete the Firebase Auth user.", variant: "destructive" });
-    // In a real app, you would call a Cloud Function here to delete both
-    // the Firestore document and the Firebase Auth user.
-    // e.g., `await deleteDoc(doc(db, 'users', userId));`
   };
 
-  if (loading || user?.role !== 'admin') {
+  if (loading || currentUser?.role !== 'admin') {
     return <div>Loading...</div>;
   }
 
@@ -135,7 +184,7 @@ export default function UserManagementPage() {
         <CardHeader className="flex flex-row justify-between items-start">
           <div>
             <CardTitle>User Management</CardTitle>
-            <CardDescription>Manage user roles for admins and agents. Customer roles are handled automatically.</CardDescription>
+            <CardDescription>Manage user roles and business access for admins and agents.</CardDescription>
           </div>
           <Button onClick={() => setIsAddUserOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -149,6 +198,7 @@ export default function UserManagementPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Accessible Businesses</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -158,8 +208,8 @@ export default function UserManagementPage() {
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
-                    <Select value={u.role} onValueChange={(newRole: 'admin' | 'agent') => handleRoleChange(u.id, newRole)} disabled={u.id === user.uid}>
-                        <SelectTrigger className="w-[180px]">
+                    <Select value={u.role} onValueChange={(newRole: 'admin' | 'agent') => handleRoleChange(u.id, newRole)} disabled={u.id === currentUser.uid}>
+                        <SelectTrigger className="w-[120px]">
                             <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
@@ -168,10 +218,16 @@ export default function UserManagementPage() {
                         </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <AlertDialog>
+                  <TableCell>
+                    {u.accessibleBusinessIds?.length || 0} business(es)
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                     <Button variant="outline" size="sm" onClick={() => setManagingAccessFor(u)}>
+                       <KeyRound className="mr-2 h-4 w-4" /> Manage Access
+                     </Button>
+                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                         <Button variant="destructive" size="icon" disabled={u.id === user.uid}>
+                         <Button variant="destructive" size="icon" disabled={u.id === currentUser.uid}>
                            <Trash2 className="h-4 w-4" />
                          </Button>
                       </AlertDialogTrigger>
@@ -198,6 +254,16 @@ export default function UserManagementPage() {
         </CardContent>
       </Card>
       
+      {managingAccessFor && (
+        <ManageAccessDialog 
+            user={managingAccessFor}
+            allBusinesses={allBusinesses}
+            open={!!managingAccessFor}
+            onOpenChange={() => setManagingAccessFor(null)}
+            onSave={handleAccessChange}
+        />
+      )}
+
       <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
           <DialogContent>
               <DialogHeader>

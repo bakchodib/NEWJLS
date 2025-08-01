@@ -30,9 +30,9 @@ const getTitleFromPath = (path: string) => {
 };
 
 const BusinessSwitcher = () => {
-    const { businesses, selectedBusiness, setSelectedBusiness } = useAuth();
+    const { businesses, selectedBusiness, setSelectedBusiness, role } = useAuth();
 
-    if (businesses.length === 0) return null;
+    if (businesses.length <= 1 && role !== 'admin') return null;
 
     return (
         <DropdownMenu>
@@ -55,13 +55,17 @@ const BusinessSwitcher = () => {
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuGroup>
-                 <DropdownMenuSeparator />
-                 <DropdownMenuItem asChild>
-                    <Link href="/business">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Manage Businesses
-                    </Link>
-                </DropdownMenuItem>
+                 {role === 'admin' && (
+                    <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <Link href="/business">
+                                <Settings className="mr-2 h-4 w-4" />
+                                Manage Businesses
+                            </Link>
+                        </DropdownMenuItem>
+                    </>
+                 )}
             </DropdownMenuContent>
         </DropdownMenu>
     )
@@ -97,7 +101,7 @@ export function Header({children}: {children?: React.ReactNode}) {
       {children}
       <h1 className="text-xl font-semibold md:text-2xl">{title}</h1>
       <div className="ml-auto flex items-center gap-4">
-        {role === 'admin' && <BusinessSwitcher />}
+        <BusinessSwitcher />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">

@@ -5,7 +5,7 @@ import { createContext, useState, useEffect, useContext, ReactNode, useCallback 
 import { useRouter, usePathname } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc, writeBatch, or } from 'firebase/firestore';
 import type { Business, Customer } from '@/types';
 
 type Role = 'admin' | 'agent' | 'customer';
@@ -14,6 +14,7 @@ interface AppUser {
   uid: string;
   role: Role | null;
   name?: string;
+  accessibleBusinessIds?: string[];
 }
 
 interface AuthContextType {
@@ -25,6 +26,7 @@ interface AuthContextType {
   selectedBusiness: Business | null;
   setSelectedBusiness: (business: Business | null) => void;
   refreshBusinesses: () => Promise<void>;
+  allBusinesses: Business[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -130,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]); // For admins to manage user access
   const [selectedBusiness, setSelectedBusinessState] = useState<Business | null>(getSelectedBusinessFromStorage());
 
   const router = useRouter();
@@ -140,33 +143,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSelectedBusinessInStorage(business);
   };
 
-  const fetchBusinesses = useCallback(async (uid: string) => {
+  const fetchBusinesses = useCallback(async (appUser: AppUser) => {
       try {
-          const businessesQuery = query(collection(db, "businesses"), where("ownerId", "==", uid));
-          const querySnapshot = await getDocs(businessesQuery);
-          
-          let fetchedBusinesses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Business));
+          let businessesQuery;
+          // Admins who own businesses can see all of them to manage access
+          // Other users can only see businesses they are explicitly given access to.
+          if (appUser.role === 'admin') {
+            const allBusinessesSnapshot = await getDocs(collection(db, "businesses"));
+            const allFetched = allBusinessesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Business));
+            setAllBusinesses(allFetched);
 
-          // If no businesses exist for this admin, create the first one with dummy data
-          if (fetchedBusinesses.length === 0) {
+            const ownedBusinessesQuery = query(collection(db, "businesses"), where("ownerId", "==", appUser.uid));
+            const accessibleBusinessesQuery = appUser.accessibleBusinessIds && appUser.accessibleBusinessIds.length > 0
+                ? query(collection(db, "businesses"), where("id", "in", appUser.accessibleBusinessIds))
+                : null;
+            
+            const [ownedSnapshot, accessibleSnapshot] = await Promise.all([
+                getDocs(ownedBusinessesQuery),
+                accessibleBusinessesQuery ? getDocs(accessibleBusinessesQuery) : Promise.resolve({ docs: [] })
+            ]);
+
+            const combinedBusinesses = new Map<string, Business>();
+            ownedSnapshot.docs.forEach(doc => combinedBusinesses.set(doc.id, { id: doc.id, ...doc.data()} as Business));
+            accessibleSnapshot.docs.forEach(doc => combinedBusinesses.set(doc.id, { id: doc.id, ...doc.data()} as Business));
+            
+            businessesQuery = Array.from(combinedBusinesses.values());
+
+          } else if (appUser.accessibleBusinessIds && appUser.accessibleBusinessIds.length > 0) {
+            const accessibleBusinessesQuery = query(collection(db, "businesses"), where("id", "in", appUser.accessibleBusinessIds));
+            const snapshot = await getDocs(accessibleBusinessesQuery);
+            businessesQuery = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Business));
+          } else {
+             businessesQuery = [];
+          }
+          
+          let fetchedBusinesses = businessesQuery;
+
+          // If an admin has no businesses, create a default one
+          if (appUser.role === 'admin' && fetchedBusinesses.length === 0) {
               const firstBusiness: Business = { 
                   id: 'biz_101', 
                   name: 'JLS FINACE LTD', 
-                  ownerId: uid 
+                  ownerId: appUser.uid 
               };
               await setDoc(doc(db, 'businesses', firstBusiness.id), firstBusiness);
-              await createDummyCustomers(firstBusiness.id); // Create dummy customers
+              await createDummyCustomers(firstBusiness.id);
               fetchedBusinesses = [firstBusiness];
+              // Give the admin access to their newly created business
+              const userDocRef = doc(db, 'users', appUser.uid);
+              await updateDoc(userDocRef, { accessibleBusinessIds: [firstBusiness.id] });
           }
           
           setBusinesses(fetchedBusinesses);
           
-          // Set selected business if not already set or invalid
           const currentSelected = getSelectedBusinessFromStorage();
           if (!currentSelected || !fetchedBusinesses.some(b => b.id === currentSelected.id)) {
               setSelectedBusiness(fetchedBusinesses[0] || null);
           } else {
-             // ensure selected business state is in sync with latest from db
              const updatedSelected = fetchedBusinesses.find(b => b.id === currentSelected.id);
              setSelectedBusiness(updatedSelected || fetchedBusinesses[0] || null);
           }
@@ -178,10 +211,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   
   const refreshBusinesses = useCallback(async () => {
-    if (user?.uid) {
-        await fetchBusinesses(user.uid);
+    if (user) {
+        await fetchBusinesses(user);
     }
-  }, [user?.uid, fetchBusinesses]);
+  }, [user, fetchBusinesses]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
@@ -194,12 +227,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             uid: firebaseUser.uid,
             role: userData.role as Role,
             name: userData.name,
+            accessibleBusinessIds: userData.accessibleBusinessIds || [],
           };
           setUser(appUser);
-
-          if (userData.role === 'admin') {
-            await fetchBusinesses(firebaseUser.uid);
-          }
+          await fetchBusinesses(appUser);
 
           if (PUBLIC_PATHS.includes(pathname)) {
             router.replace('/dashboard');
@@ -241,7 +272,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       businesses,
       selectedBusiness,
       setSelectedBusiness,
-      refreshBusinesses
+      refreshBusinesses,
+      allBusinesses
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

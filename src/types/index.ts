@@ -61,3 +61,12 @@ export interface Loan {
   history: LoanHistory[];
   principalRemaining: number;
 }
+
+
+export interface AppUser {
+  id: string; // This is the UID from Firebase Auth
+  name: string;
+  email: string;
+  role: 'admin' | 'agent';
+  accessibleBusinessIds: string[];
+};
