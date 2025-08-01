@@ -69,7 +69,7 @@ export const deleteBusiness = async (businessId: string): Promise<void> => {
 
 // Customer Functions
 export const getCustomers = async (businessId: string): Promise<Customer[]> => {
-  const q = query(customersCollection, where("businessId", "==", businessId), orderBy("name"));
+  const q = query(customersCollection, where("businessId", "==", businessId));
   const querySnapshot = await getDocs(q);
   const customers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
   return customers;
