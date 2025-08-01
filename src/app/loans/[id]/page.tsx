@@ -54,7 +54,6 @@ function WhatsappPreview({ open, onOpenChange, message, businessName }: { open: 
 // Helper: Load image as Base64
 function loadImage(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Check if the URL is already a Base64 data URI
     if (url.startsWith('data:image')) {
       resolve(url);
       return;
@@ -72,11 +71,18 @@ function loadImage(url: string): Promise<string> {
         const dataUrl = canvas.toDataURL("image/jpeg");
         resolve(dataUrl);
       } catch (e) {
-        reject(new Error("Failed to convert image to data URL."));
+        console.error("Canvas toDataURL failed:", e);
+        reject(new Error("Failed to convert image to data URL. The image might be tainted."));
       }
     };
-    img.onerror = () => reject(new Error('Failed to fetch image directly.'));
-    img.src = url;
+    img.onerror = (e) => {
+      console.error("Image load error:", e);
+      reject(new Error('Failed to load image. The resource might be blocked by CORS policy.'));
+    };
+
+    // Use a CORS proxy to bypass issues with placehold.co not sending headers
+    const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//, ''))}`;
+    img.src = proxyUrl;
   });
 }
 
