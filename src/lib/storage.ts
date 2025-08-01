@@ -14,7 +14,8 @@ import {
     where,
     writeBatch,
     setDoc,
-    orderBy
+    orderBy,
+    runTransaction
 } from 'firebase/firestore';
 import * as xlsx from 'xlsx';
 
@@ -163,22 +164,39 @@ export const getCustomerById = async (businessId: string, customerId: string): P
 
 
 export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate' | 'principalRemaining'>): Promise<Loan> => {
-    const loanId = `loan_${new Date().getTime()}`;
+    const counterRef = doc(db, 'counters', 'loanCounter');
 
-    const newLoanData: Loan = { 
-        ...loan,
-        id: loanId,
-        status: 'Pending' as LoanStatus,
-        disbursalDate: '', 
-        emis: [],
-        history: [],
-        principalRemaining: loan.amount,
-    };
-    
-    const loanDocRef = doc(db, 'loans', newLoanData.id);
-    await setDoc(loanDocRef, newLoanData);
+    const newLoan = await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        
+        let newIdValue;
+        if (!counterDoc.exists()) {
+            newIdValue = 10201; // Starting number
+        } else {
+            const lastId = counterDoc.data().lastId || 10200;
+            newIdValue = lastId + 1;
+        }
 
-    return newLoanData;
+        const newLoanId = String(newIdValue);
+        const newLoanRef = doc(db, 'loans', newLoanId);
+        
+        const newLoanData: Loan = { 
+            ...loan,
+            id: newLoanId,
+            status: 'Pending' as LoanStatus,
+            disbursalDate: '', 
+            emis: [],
+            history: [],
+            principalRemaining: loan.amount,
+        };
+
+        transaction.set(newLoanRef, newLoanData);
+        transaction.set(counterRef, { lastId: newIdValue }, { merge: true });
+
+        return newLoanData;
+    });
+
+    return newLoan;
 };
 
 export const updateLoan = async (updatedLoan: Loan): Promise<void> => {
