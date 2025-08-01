@@ -1,8 +1,15 @@
 
 export type Role = 'admin' | 'agent' | 'customer';
 
+export interface Business {
+  id: string;
+  name: string;
+  ownerId: string; // UID of the admin who created it
+}
+
 export interface Customer {
   id: string;
+  businessId: string;
   name: string;
   phone: string;
   address: string;
@@ -41,6 +48,7 @@ export type LoanStatus = 'Pending' | 'Approved' | 'Disbursed' | 'Rejected' | 'Cl
 
 export interface Loan {
   id: string;
+  businessId: string;
   customerId: string;
   customerName: string;
   amount: number; // Original or total including topups

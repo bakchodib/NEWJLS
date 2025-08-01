@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getLoans, deleteLoan } from '@/lib/storage';
 import type { Loan } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,17 +18,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function LoansPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { role } = useAuth();
+  const { role, selectedBusiness } = useAuth();
   const { toast } = useToast();
   
   const [totalDisbursed, setTotalDisbursed] = useState(0);
   const [netDisbursed, setNetDisbursed] = useState(0);
   const [toBeCollected, setToBeCollected] = useState(0);
   
-  const fetchLoans = async () => {
+  const fetchLoans = useCallback(async () => {
+    if (!selectedBusiness?.id) return;
     try {
         setIsLoading(true);
-        const allLoans = await getLoans();
+        const allLoans = await getLoans(selectedBusiness.id);
         const relevantLoans = allLoans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
 
         // In a real app, customer's view would be filtered by their ID.
@@ -61,11 +62,13 @@ export default function LoansPage() {
     } finally {
         setIsLoading(false);
     }
-  };
+  }, [selectedBusiness, role, toast]);
 
   useEffect(() => {
-    fetchLoans();
-  }, [role]);
+    if (selectedBusiness) {
+        fetchLoans();
+    }
+  }, [selectedBusiness, fetchLoans]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -76,8 +79,9 @@ export default function LoansPage() {
   }
 
   const handleDelete = async (loanId: string) => {
+    if (!selectedBusiness?.id) return;
     try {
-      await deleteLoan(loanId);
+      await deleteLoan(selectedBusiness.id, loanId);
       await fetchLoans();
       toast({ title: 'Loan Deleted', description: 'The loan has been permanently removed.' });
     } catch(error) {
@@ -104,7 +108,7 @@ export default function LoansPage() {
       <div className="flex items-center justify-between">
          <div>
           <h1 className="text-2xl font-bold tracking-tight">{role === 'customer' ? 'My Loans' : 'Disbursed Loans'}</h1>
-          <p className="text-muted-foreground">View and manage active and closed loan accounts.</p>
+          <p className="text-muted-foreground">View and manage active and closed loan accounts for {selectedBusiness?.name}.</p>
         </div>
         {role === 'admin' && (
             <div className="flex gap-2">
@@ -226,7 +230,7 @@ export default function LoansPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center">
-                    No disbursed loans found.
+                    No disbursed loans found for this business.
                   </TableCell>
                 </TableRow>
               )}
@@ -237,4 +241,3 @@ export default function LoansPage() {
     </div>
   );
 }
-

@@ -30,7 +30,7 @@ export default function EditCustomerPage() {
   const router = useRouter();
   const params = useParams();
   const { id } = params;
-  const { role, loading: authLoading } = useAuth();
+  const { role, loading: authLoading, selectedBusiness } = useAuth();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -53,11 +53,11 @@ export default function EditCustomerPage() {
       return;
     }
 
-    if (id && typeof id === 'string') {
+    if (id && typeof id === 'string' && selectedBusiness?.id) {
       const fetchCustomer = async () => {
         try {
           setPageLoading(true);
-          const foundCustomer = await getCustomerById(id);
+          const foundCustomer = await getCustomerById(selectedBusiness.id, id);
           if (foundCustomer) {
               setCustomer(foundCustomer);
               form.reset({
@@ -79,7 +79,7 @@ export default function EditCustomerPage() {
       };
       fetchCustomer();
     }
-  }, [id, role, authLoading, router, toast, form]);
+  }, [id, role, authLoading, router, toast, form, selectedBusiness]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!customer) return;
@@ -104,7 +104,7 @@ export default function EditCustomerPage() {
     }
   }
 
-  if (pageLoading || authLoading) {
+  if (pageLoading || authLoading || !selectedBusiness) {
     return <div>Loading customer data...</div>;
   }
 
@@ -117,7 +117,7 @@ export default function EditCustomerPage() {
       <Card>
         <CardHeader>
           <CardTitle>Edit Customer: {customer.name}</CardTitle>
-          <CardDescription>Update the customer details below. KYC documents cannot be changed.</CardDescription>
+          <CardDescription>Update the customer details below for {selectedBusiness.name}. KYC documents cannot be changed.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>

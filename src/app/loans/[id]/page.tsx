@@ -34,7 +34,7 @@ const topupSchema = z.object({
 });
 
 
-function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpenChange: (open: boolean) => void, message: string }) {
+function WhatsappPreview({ open, onOpenChange, message, businessName }: { open: boolean, onOpenChange: (open: boolean) => void, message: string, businessName?: string }) {
     if (!open) return null;
 
     return (
@@ -42,7 +42,7 @@ function WhatsappPreview({ open, onOpenChange, message }: { open: boolean, onOpe
             <div className="bg-white dark:bg-card rounded-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
                 <h3 className="font-bold text-lg mb-2 flex items-center gap-2"><MessageCircle className="text-green-500"/>WhatsApp Preview</h3>
                 <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md text-sm">
-                    <p className="font-bold">JLS FINACE LTD Bot</p>
+                    <p className="font-bold">{businessName || 'JLS FINACE LTD'} Bot</p>
                     <p>{message}</p>
                 </div>
                 <Button className="w-full mt-4" onClick={() => onOpenChange(false)}>Close</Button>
@@ -92,13 +92,13 @@ function formatCurrency(value: number) {
  * @param loan - Object with { id, amount, interestRate, tenure, disbursalDate }
  * @param emiList - Array of EMIs with { dueDate, amount, principal, interest, balance, status }
  */
-async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[]) {
+async function generateLoanCardPDF(customer: Customer, loan: Loan, emiList: EMI[], businessName?: string) {
   const doc = new jsPDF();
 
   // Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("JLS FINACE LTD", 105, 15, { align: "center" });
+  doc.text(businessName || 'JLS FINACE LTD', 105, 15, { align: "center" });
   doc.setFontSize(13);
   doc.text("Loan Card", 105, 23, { align: "center" });
 
@@ -186,7 +186,7 @@ export default function LoanDetailsPage() {
 
   const params = useParams();
   const { id } = params;
-  const { role } = useAuth();
+  const { role, selectedBusiness } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -194,23 +194,24 @@ export default function LoanDetailsPage() {
   const topupFormMethods = useForm({ resolver: zodResolver(topupSchema) });
 
   const fetchLoanDetails = useCallback(async (loanId: string) => {
+    if (!selectedBusiness?.id) return;
     try {
-        const currentLoan = await getLoanById(loanId);
+        const currentLoan = await getLoanById(selectedBusiness.id, loanId);
         setLoan(currentLoan);
         if (currentLoan) {
-            const currentCustomer = await getCustomerById(currentLoan.customerId);
+            const currentCustomer = await getCustomerById(selectedBusiness.id, currentLoan.customerId);
             setCustomer(currentCustomer);
         }
     } catch (error) {
         toast({ title: "Error", description: "Failed to fetch loan details.", variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast, selectedBusiness]);
 
   useEffect(() => {
-    if (id && typeof id === 'string') {
+    if (id && typeof id === 'string' && selectedBusiness) {
         fetchLoanDetails(id);
     }
-  }, [id, fetchLoanDetails]);
+  }, [id, fetchLoanDetails, selectedBusiness]);
 
 
   const handleCollectEmi = async (emiId: string) => {
@@ -244,7 +245,7 @@ export default function LoanDetailsPage() {
     
     try {
         await updateLoan(updatedLoan); 
-        await fetchLoanDetails(loan.id); // Refresh data from firestore
+        await fetchLoanDetails(loan.id); // Refresh data
         toast({ title: 'Success', description: `EMI ${emiIndex + 1} marked as paid.` });
         
         if (collectedEmi) {
@@ -259,10 +260,10 @@ export default function LoanDetailsPage() {
   };
 
   const onPrepaymentSubmit = async (values: z.infer<typeof prepaymentSchema>) => {
-    if (!loan) return;
+    if (!loan || !selectedBusiness?.id) return;
     setIsActionSubmitting(true);
     try {
-        await prepayLoan(loan.id, values.amount);
+        await prepayLoan(selectedBusiness.id, loan.id, values.amount);
         toast({ title: "Prepayment Successful", description: `Prepayment of ${formatCurrency(values.amount)} has been applied.` });
         await fetchLoanDetails(loan.id);
     } catch(e) {
@@ -273,10 +274,10 @@ export default function LoanDetailsPage() {
   };
 
   const onTopupSubmit = async (values: z.infer<typeof topupSchema>) => {
-    if (!loan) return;
+    if (!loan || !selectedBusiness?.id) return;
     setIsActionSubmitting(true);
     try {
-        await topupLoan(loan.id, values.amount, values.newTenure);
+        await topupLoan(selectedBusiness.id, loan.id, values.amount, values.newTenure);
         toast({ title: "Top-up Successful", description: `Loan has been topped up by ${formatCurrency(values.amount)}.` });
         await fetchLoanDetails(loan.id);
     } catch(e) {
@@ -287,10 +288,10 @@ export default function LoanDetailsPage() {
   };
 
   const handleCloseLoan = async () => {
-    if (!loan) return;
+    if (!loan || !selectedBusiness?.id) return;
     setIsActionSubmitting(true);
     try {
-        await closeLoan(loan.id);
+        await closeLoan(selectedBusiness.id, loan.id);
         toast({ title: "Loan Closed", description: "The loan has been successfully closed." });
         await fetchLoanDetails(loan.id);
     } catch(e) {
@@ -300,7 +301,7 @@ export default function LoanDetailsPage() {
     }
   };
 
-async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList: EMI[]) {
+async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList: EMI[], businessName?: string) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   let y: number;
@@ -308,7 +309,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   // Page 1 Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("JLS FINACE LTD", 105, 15, { align: "center" });
+  doc.text(businessName || 'JLS FINACE LTD', 105, 15, { align: "center" });
   doc.setFontSize(13);
   doc.text("Loan Agreement Document", 105, 23, { align: "center" });
   doc.setFontSize(10);
@@ -480,7 +481,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
     doc.text('Payment Receipt', pageWidth / 2, margin + 10, { align: 'center' });
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('JLS FINACE LTD', pageWidth / 2, margin + 16, { align: 'center' });
+    doc.text(selectedBusiness?.name || 'JLS FINACE LTD', pageWidth / 2, margin + 16, { align: 'center' });
     
     // Receipt Details Table
     autoTable(doc, {
@@ -551,7 +552,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
   }
 
 
-  if (!loan || !customer) return <div>Loading loan details or loan not found...</div>;
+  if (!loan || !customer || !selectedBusiness) return <div>Loading loan details or loan not found...</div>;
 
   const isClosed = loan.status === 'Closed';
   const PrepaymentForm = ({formMethods}) => (
@@ -609,6 +610,7 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
         open={whatsappPreview.open} 
         onOpenChange={(open) => setWhatsappPreview({ open, message: '' })} 
         message={whatsappPreview.message}
+        businessName={selectedBusiness.name}
       />
       <Card>
         <CardHeader>
@@ -626,8 +628,8 @@ async function generateLoanAgreementPDF(customer: Customer, loan: Loan, emiList:
               </div>
             </div>
              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => generateLoanCardPDF(customer, loan, loan.emis)}>Loan Card</Button>
-                <Button variant="outline" size="sm" onClick={() => generateLoanAgreementPDF(customer, loan, loan.emis)}>Loan Agreement</Button>
+                <Button variant="outline" size="sm" onClick={() => generateLoanCardPDF(customer, loan, loan.emis, selectedBusiness.name)}>Loan Card</Button>
+                <Button variant="outline" size="sm" onClick={() => generateLoanAgreementPDF(customer, loan, loan.emis, selectedBusiness.name)}>Loan Agreement</Button>
                 {role === 'admin' && (
                      <Tooltip>
                         <TooltipTrigger asChild>

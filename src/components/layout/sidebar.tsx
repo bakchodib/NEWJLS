@@ -11,12 +11,6 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
   LayoutDashboard,
   Users,
   Landmark,
@@ -27,6 +21,7 @@ import {
   Download,
   ChevronDown,
   Briefcase,
+  Building,
 } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -34,6 +29,13 @@ import React, { useState } from 'react';
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/users', label: 'User Management', icon: UserCog },
+  {
+    label: 'Business',
+    icon: Building,
+    subItems: [
+      { href: '/business/create', label: 'Create Business', icon: Briefcase },
+    ],
+  },
   {
     label: 'Customers',
     icon: Users,
@@ -86,7 +88,7 @@ const navItemsMap = {
 };
 
 export function Sidebar() {
-  const { role } = useAuth();
+  const { role, selectedBusiness } = useAuth();
   const pathname = usePathname();
   const navItems = role ? navItemsMap[role] || [] : [];
   
@@ -94,9 +96,11 @@ export function Sidebar() {
     if (item.subItems) {
       return item.subItems.some(sub => pathname.startsWith(sub.href));
     }
+    // Exact match for dashboard and users
     if (item.href === '/dashboard' || item.href === '/users') {
         return pathname === item.href;
     }
+    // Starts with for others to handle sub-pages like /loans/[id]
     return pathname.startsWith(item.href);
   };
   
@@ -119,7 +123,7 @@ export function Sidebar() {
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Briefcase className="h-6 w-6 text-primary" />
-          <span className="">JLS FINACE LTD</span>
+          <span className="">{selectedBusiness?.name || 'FinanceFlow'}</span>
         </Link>
       </div>
       <div className="flex-1 overflow-auto py-4">
@@ -128,7 +132,7 @@ export function Sidebar() {
             item.subItems ? (
               <Collapsible
                 key={index}
-                open={openSections[item.label]}
+                open={openSections[item.label] ?? false}
                 onOpenChange={() => toggleSection(item.label)}
                 className="grid gap-1"
               >
@@ -151,7 +155,7 @@ export function Sidebar() {
                       href={subItem.href}
                       className={cn(
                         'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                        pathname.startsWith(subItem.href) &&
+                        pathname === subItem.href &&
                           'text-primary bg-muted'
                       )}
                     >

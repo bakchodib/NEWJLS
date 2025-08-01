@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { getLoans, updateLoan, disburseLoan, deleteLoan } from '@/lib/storage';
 import type { Loan } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -22,33 +22,34 @@ import { getDaysInMonth, getYear, getMonth, getDate, setYear, setMonth, setDate,
 export default function LoanApplicationsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { role, loading } = useAuth();
+  const { role, loading, selectedBusiness } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   
   const [disburseLoanId, setDisburseLoanId] = useState<string | null>(null);
   const [disbursalDate, setDisbursalDate] = useState<Date>(new Date());
 
-  const fetchLoans = async () => {
+  const fetchLoans = useCallback(async () => {
+    if (!selectedBusiness?.id) return;
     try {
       setIsLoading(true);
-      const allLoans = await getLoans();
+      const allLoans = await getLoans(selectedBusiness.id);
       setLoans(allLoans);
     } catch(error) {
       toast({ title: 'Error', description: 'Failed to fetch loan applications.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedBusiness, toast]);
 
   useEffect(() => {
     if (!loading && role !== 'admin') {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
-    } else {
+    } else if(role === 'admin' && selectedBusiness) {
       fetchLoans();
     }
-  }, [role, loading, router, toast]);
+  }, [role, loading, router, toast, selectedBusiness, fetchLoans]);
   
   const updateLoanStatus = async (loanId: string, status: 'Approved' | 'Rejected') => {
     const loanToUpdate = loans.find(l => l.id === loanId);
@@ -65,8 +66,8 @@ export default function LoanApplicationsPage() {
   };
 
   const handleDisburseConfirm = async () => {
-    if (!disburseLoanId || !disbursalDate) {
-        toast({ title: 'Error', description: 'Loan ID or disbursal date is missing.', variant: 'destructive' });
+    if (!disburseLoanId || !disbursalDate || !selectedBusiness?.id) {
+        toast({ title: 'Error', description: 'Loan ID, business, or disbursal date is missing.', variant: 'destructive' });
         return;
     }
     try {
@@ -82,8 +83,9 @@ export default function LoanApplicationsPage() {
   }
 
   const handleDelete = async (loanId: string) => {
+    if (!selectedBusiness?.id) return;
     try {
-        await deleteLoan(loanId);
+        await deleteLoan(selectedBusiness.id, loanId);
         await fetchLoans();
         toast({ title: 'Loan Deleted', description: 'The loan has been permanently removed.' });
     } catch (error) {
@@ -98,7 +100,7 @@ export default function LoanApplicationsPage() {
   }), [loans]);
 
 
-  if (loading || role !== 'admin') {
+  if (loading || role !== 'admin' || !selectedBusiness) {
     return <div>Loading...</div>;
   }
   
@@ -220,7 +222,7 @@ export default function LoanApplicationsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Loan Applications</CardTitle>
-          <CardDescription>Review, approve, reject, and disburse loan applications.</CardDescription>
+          <CardDescription>Review, approve, reject, and disburse loan applications for {selectedBusiness.name}.</CardDescription>
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="pending">

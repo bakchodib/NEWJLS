@@ -43,7 +43,7 @@ export default function EmiCollectionPage() {
   const [monthlyEmis, setMonthlyEmis] = useState<MonthlyEmi[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
-  const { role, loading } = useAuth();
+  const { role, loading, selectedBusiness } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [whatsappPreview, setWhatsappPreview] = useState({ open: false, message: '' });
@@ -58,9 +58,13 @@ export default function EmiCollectionPage() {
   }, []);
 
   const fetchMonthlyEmis = useCallback(async () => {
+    if (!selectedBusiness?.id) return;
     try {
         setIsLoading(true);
-        const [loans, customers] = await Promise.all([getLoans(), getCustomers()]);
+        const [loans, customers] = await Promise.all([
+            getLoans(selectedBusiness.id), 
+            getCustomers(selectedBusiness.id)
+        ]);
         
         const customersMap = new Map(customers.map(c => [c.id, c]));
         const disbursedLoans = loans.filter(l => l.status === 'Disbursed' || l.status === 'Closed');
@@ -88,17 +92,17 @@ export default function EmiCollectionPage() {
     } finally {
         setIsLoading(false);
     }
-  }, [selectedDate, toast]);
+  }, [selectedDate, toast, selectedBusiness]);
 
 
   useEffect(() => {
     if (!loading && (role !== 'admin' && role !== 'agent')) {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
-    } else {
+    } else if (selectedBusiness) {
       fetchMonthlyEmis();
     }
-  }, [role, loading, router, toast, fetchMonthlyEmis]);
+  }, [role, loading, router, toast, fetchMonthlyEmis, selectedBusiness]);
   
   const { totalAmount, collectedAmount, pendingAmount, pendingEmis } = useMemo(() => {
     const stats = monthlyEmis.reduce((acc, emi) => {
@@ -126,7 +130,8 @@ export default function EmiCollectionPage() {
   }
 
   const handleCollectEmi = async (loanId: string, emiId: string) => {
-    const loan = await getLoanById(loanId);
+    if (!selectedBusiness?.id) return;
+    const loan = await getLoanById(selectedBusiness.id, loanId);
     if (!loan) {
         toast({ title: 'Error', description: 'Loan not found.', variant: 'destructive' });
         return;
@@ -187,7 +192,7 @@ export default function EmiCollectionPage() {
     const monthName = format(selectedDate, 'MMMM yyyy');
 
     doc.setFontSize(12);
-    doc.text(`Pending EMI Report - ${monthName}`, 14, 22);
+    doc.text(`Pending EMI Report - ${monthName} - ${selectedBusiness?.name}`, 14, 22);
 
     const body = pendingEmis.map((emi) => {
         return [
@@ -222,7 +227,7 @@ export default function EmiCollectionPage() {
     ))
   );
 
-  if (loading || (role !== 'admin' && role !== 'agent')) {
+  if (loading || (role !== 'admin' && role !== 'agent') || !selectedBusiness) {
     return <div>Loading...</div>;
   }
 
@@ -273,7 +278,7 @@ export default function EmiCollectionPage() {
                 <div>
                     <CardTitle>Pending Collections for {format(selectedDate, 'MMMM yyyy')}</CardTitle>
                     <CardDescription>
-                        A list of all EMIs still pending for this month.
+                        A list of all EMIs still pending for this month in {selectedBusiness.name}.
                     </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">

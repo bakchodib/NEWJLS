@@ -17,20 +17,21 @@ import {
     setDoc
 } from 'firebase/firestore';
 
-// Customer Functions
+// References to top-level collections
 const customersCollection = collection(db, 'customers');
 const loansCollection = collection(db, 'loans');
 
 
-export const getCustomers = async (): Promise<Customer[]> => {
-  const querySnapshot = await getDocs(query(customersCollection, orderBy("id")));
+export const getCustomers = async (businessId: string): Promise<Customer[]> => {
+  const q = query(customersCollection, where("businessId", "==", businessId), orderBy("id"));
+  const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
 };
 
-export const getAvailableCustomers = async (): Promise<Customer[]> => {
+export const getAvailableCustomers = async (businessId: string): Promise<Customer[]> => {
     const [customersSnapshot, loansSnapshot] = await Promise.all([
-        getDocs(query(customersCollection, orderBy("id"))),
-        getDocs(query(loansCollection, where("status", "in", ["Pending", "Approved", "Disbursed"])))
+        getDocs(query(customersCollection, where("businessId", "==", businessId), orderBy("id"))),
+        getDocs(query(loansCollection, where("businessId", "==", businessId), where("status", "in", ["Pending", "Approved", "Disbursed"])))
     ]);
     
     const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
@@ -40,7 +41,7 @@ export const getAvailableCustomers = async (): Promise<Customer[]> => {
 }
 
 export const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<Customer> => {
-  const lastCustomerQuery = query(customersCollection, orderBy("id", "desc"), limit(1));
+  const lastCustomerQuery = query(customersCollection, where("businessId", "==", customer.businessId), orderBy("id", "desc"), limit(1));
   const lastCustomerSnapshot = await getDocs(lastCustomerQuery);
 
   let newCustomerId = 101000;
@@ -66,7 +67,7 @@ export const updateCustomer = async (updatedCustomer: Customer): Promise<void> =
     await updateDoc(customerDoc, customerData);
 
     // If customer name changed, update it in their loans
-    const loansQuery = query(loansCollection, where("customerId", "==", id));
+    const loansQuery = query(loansCollection, where("customerId", "==", id), where("businessId", "==", updatedCustomer.businessId));
     const loansSnapshot = await getDocs(loansQuery);
     
     if (!loansSnapshot.empty) {
@@ -79,9 +80,9 @@ export const updateCustomer = async (updatedCustomer: Customer): Promise<void> =
     }
 }
 
-export const deleteCustomer = async (customerId: string): Promise<void> => {
+export const deleteCustomer = async (businessId: string, customerId: string): Promise<void> => {
     // Check if customer has loans
-    const loansQuery = query(loansCollection, where("customerId", "==", customerId));
+    const loansQuery = query(loansCollection, where("businessId", "==", businessId), where("customerId", "==", customerId));
     const loansSnapshot = await getDocs(loansQuery);
     if (!loansSnapshot.empty) {
         throw new Error("Cannot delete customer with existing loans.");
@@ -90,23 +91,24 @@ export const deleteCustomer = async (customerId: string): Promise<void> => {
 }
 
 // Loan Functions
-export const getLoans = async (): Promise<Loan[]> => {
-    const querySnapshot = await getDocs(query(loansCollection, orderBy("id")));
+export const getLoans = async (businessId: string): Promise<Loan[]> => {
+    const q = query(loansCollection, where("businessId", "==", businessId), orderBy("id"));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
 };
 
-export const getLoanById = async (loanId: string): Promise<Loan | null> => {
+export const getLoanById = async (businessId: string, loanId: string): Promise<Loan | null> => {
     const loanDocRef = doc(db, 'loans', loanId);
     const loanDoc = await getDoc(loanDocRef);
-    if (loanDoc.exists()) {
+    if (loanDoc.exists() && loanDoc.data().businessId === businessId) {
         return { id: loanDoc.id, ...loanDoc.data() } as Loan;
     }
     return null;
 }
 
-export const getCustomerById = async (customerId: string): Promise<Customer | null> => {
+export const getCustomerById = async (businessId: string, customerId: string): Promise<Customer | null> => {
     const customerDoc = await getDoc(doc(db, 'customers', customerId));
-    if (customerDoc.exists()) {
+    if (customerDoc.exists() && customerDoc.data().businessId === businessId) {
         return { id: customerDoc.id, ...customerDoc.data() } as Customer;
     }
     return null;
@@ -114,8 +116,7 @@ export const getCustomerById = async (customerId: string): Promise<Customer | nu
 
 
 export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'status' | 'disbursalDate' | 'principalRemaining'>): Promise<Loan> => {
-    // Get the last loan to determine the new ID
-    const lastLoanQuery = query(loansCollection, orderBy("id", "desc"), limit(1));
+    const lastLoanQuery = query(loansCollection, where("businessId", "==", loan.businessId), orderBy("id", "desc"), limit(1));
     const lastLoanSnapshot = await getDocs(lastLoanQuery);
 
     let newLoanId = 1000100;
@@ -134,7 +135,6 @@ export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'stat
         principalRemaining: loan.amount,
     };
     
-    // Use setDoc with the custom ID
     const loanDocRef = doc(db, 'loans', newLoanData.id);
     await setDoc(loanDocRef, newLoanData);
 
@@ -143,7 +143,7 @@ export const addLoan = async (loan: Omit<Loan, 'id' | 'emis' | 'history' | 'stat
 
 export const updateLoan = async (updatedLoan: Loan): Promise<void> => {
     const loanDoc = doc(db, 'loans', updatedLoan.id);
-    const oldLoan = await getLoanById(updatedLoan.id);
+    const oldLoan = await getLoanById(updatedLoan.businessId, updatedLoan.id);
     if (!oldLoan) return;
     
     const { id, ...loanData } = updatedLoan;
@@ -159,13 +159,26 @@ export const updateLoan = async (updatedLoan: Loan): Promise<void> => {
     await updateDoc(loanDoc, loanData);
 }
 
-export const deleteLoan = async (loanId: string): Promise<void> => {
-    await deleteDoc(doc(db, 'loans', loanId));
+export const deleteLoan = async (businessId: string, loanId: string): Promise<void> => {
+    const loanRef = doc(db, 'loans', loanId);
+    // Optional: check businessId before deleting for extra security
+    const loanDoc = await getDoc(loanRef);
+    if(loanDoc.exists() && loanDoc.data().businessId === businessId) {
+        await deleteDoc(loanRef);
+    } else {
+        throw new Error("Loan not found or you do not have permission to delete it.");
+    }
 }
 
 export const disburseLoan = async (loanId: string, disbursalDate: Date): Promise<Loan | null> => {
-    const loan = await getLoanById(loanId);
-    if (!loan || loan.status !== 'Approved') return null;
+    // This function needs to fetch the loan without businessId first to get it, then can call update.
+    const loanRef = doc(db, 'loans', loanId);
+    const loanSnap = await getDoc(loanRef);
+
+    if (!loanSnap.exists()) return null;
+    const loan = { id: loanSnap.id, ...loanSnap.data() } as Loan;
+    
+    if (loan.status !== 'Approved') return null;
 
     loan.status = 'Disbursed';
     loan.disbursalDate = disbursalDate.toISOString();
@@ -213,8 +226,8 @@ function calculateEmis(loan: Loan, principal: number, tenure?: number, startDate
     return newEmis;
 }
 
-export const prepayLoan = async (loanId: string, amount: number): Promise<void> => {
-    const loan = await getLoanById(loanId);
+export const prepayLoan = async (businessId: string, loanId: string, amount: number): Promise<void> => {
+    const loan = await getLoanById(businessId, loanId);
     if (!loan) throw new Error("Loan not found");
     if (loan.status !== 'Disbursed') throw new Error("Can only prepay a disbursed loan.");
     if (loan.principalRemaining === undefined || amount > loan.principalRemaining) {
@@ -237,10 +250,8 @@ export const prepayLoan = async (loanId: string, amount: number): Promise<void> 
         return;
     }
 
-    const nextDueDate = new Date(pendingEmis[0].dueDate);
     const lastPaymentDate = paidEmis.length > 0 ? new Date(paidEmis[paidEmis.length - 1].dueDate) : new Date(loan.disbursalDate);
 
-    // We pass the last payment date to calculate the next due date correctly.
     const newEmis = calculateEmis(loan, loan.principalRemaining, remainingTenure, lastPaymentDate);
     
     loan.emis = [...paidEmis, ...newEmis];
@@ -248,8 +259,8 @@ export const prepayLoan = async (loanId: string, amount: number): Promise<void> 
     await updateLoan(loan);
 }
 
-export const topupLoan = async (loanId: string, topupAmount: number, newTenure?: number): Promise<void> => {
-    const loan = await getLoanById(loanId);
+export const topupLoan = async (businessId: string, loanId: string, topupAmount: number, newTenure?: number): Promise<void> => {
+    const loan = await getLoanById(businessId, loanId);
     if (!loan) throw new Error("Loan not found");
     if (loan.status !== 'Disbursed') throw new Error("Can only top-up a disbursed loan.");
 
@@ -277,8 +288,8 @@ export const topupLoan = async (loanId: string, topupAmount: number, newTenure?:
     await updateLoan(loan);
 }
 
-export const closeLoan = async (loanId: string): Promise<void> => {
-    const loan = await getLoanById(loanId);
+export const closeLoan = async (businessId: string, loanId: string): Promise<void> => {
+    const loan = await getLoanById(businessId, loanId);
     if (!loan) throw new Error("Loan not found");
     if (loan.status !== 'Disbursed') throw new Error("Can only close a disbursed loan.");
 

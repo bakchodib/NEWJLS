@@ -1,19 +1,20 @@
 
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Menu, Landmark, LayoutDashboard, Users, UserCog, UserPlus, FileText, HandCoins, Download, Briefcase } from 'lucide-react';
+import { Menu, Landmark, LayoutDashboard, Users, UserCog, UserPlus, FileText, HandCoins, Download, Briefcase, Building } from 'lucide-react';
 import Link from 'next/link';
+import React from 'react';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/users', label: 'User Management', icon: UserCog },
+  { href: '/business/create', label: 'Create Business', icon: Building },
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/customers/register', label: 'Register Customer', icon: UserPlus },
   { href: '/loans', label: 'Loans', icon: Landmark },
@@ -45,7 +46,7 @@ const PUBLIC_PATHS = ['/', '/login'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, loading } = useAuth();
+  const { user, loading, role, selectedBusiness } = useAuth();
   
   if (PUBLIC_PATHS.includes(pathname)) {
     return <>{children}</>;
@@ -58,17 +59,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+  
+  // For admin, if no business is selected yet, show a selection prompt.
+  if (role === 'admin' && !selectedBusiness && !pathname.startsWith('/business/create')) {
+      return (
+          <div className="flex h-screen w-full items-center justify-center bg-background">
+              <div className="text-center">
+                  <h1 className="text-2xl font-bold mb-4">No Business Selected</h1>
+                  <p className="text-muted-foreground mb-6">Please select a business from the header dropdown to continue.</p>
+                  <Button asChild>
+                    <Link href="/business/create">Create Your First Business</Link>
+                  </Button>
+              </div>
+          </div>
+      )
+  }
 
   return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
 }
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const { role } = useAuth();
+  const { role, selectedBusiness } = useAuth();
   const pathname = usePathname();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   
   const navItems = role ? navItemsMap[role] || [] : [];
-
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -93,7 +108,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
                         className="flex items-center gap-2 text-lg font-semibold mb-4"
                         >
                             <Briefcase className="h-6 w-6" />
-                            <span>JLS FINACE LTD</span>
+                            <span>{selectedBusiness?.name || 'Finance App'}</span>
                         </Link>
                         {navItems.map((item, index) => (
                              <Link

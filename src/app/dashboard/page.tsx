@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 const AdminDashboard = ({ stats }: { stats: any }) => (
   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -141,18 +141,17 @@ const DashboardSkeleton = () => (
 
 
 export default function DashboardPage() {
-  const { role, loading } = useAuth();
+  const { role, loading, selectedBusiness } = useAuth();
   const [stats, setStats] = useState<any>(null);
 
-  // By using pathname, this effect will re-run on navigation to this page.
-  const pathname = usePathname();
-  const searchParams = useSearchParams(); // Also watch for query param changes
-
   const fetchStats = useCallback(async () => {
-    if (!role) return;
+    if (!role || !selectedBusiness?.id) return;
     try {
         setStats(null); // Set to null to show skeleton while fetching
-        const [customers, loans] = await Promise.all([getCustomers(), getLoans()]);
+        const [customers, loans] = await Promise.all([
+          getCustomers(selectedBusiness.id), 
+          getLoans(selectedBusiness.id)
+        ]);
         
         const now = new Date();
         
@@ -198,21 +197,20 @@ export default function DashboardPage() {
     } catch (error) {
         console.error("Failed to fetch dashboard stats:", error);
     }
-  }, [role]);
+  }, [role, selectedBusiness?.id]);
 
   useEffect(() => {
-    if (!loading && role) {
+    if (!loading && role && selectedBusiness) {
         fetchStats();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, loading, pathname, searchParams]); // fetchStats is now stable due to useCallback
+  }, [role, loading, selectedBusiness, fetchStats]);
 
 
-  if (!stats) return <DashboardSkeleton />;
+  if (loading || !stats) return <DashboardSkeleton />;
 
   return (
     <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Welcome, {role}!</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Welcome to {selectedBusiness?.name || role}!</h1>
         {role === 'admin' && <AdminDashboard stats={stats} />}
         {role === 'agent' && <AgentDashboard stats={stats} />}
         {role === 'customer' && <CustomerDashboard stats={stats} />}

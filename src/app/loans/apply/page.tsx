@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { Customer } from '@/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,31 +32,33 @@ export default function LoanApplicationPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const { role, loading } = useAuth();
+  const { role, loading, selectedBusiness } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingCustomers, setIsFetchingCustomers] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    if (!selectedBusiness?.id) return;
+    setIsFetchingCustomers(true);
+    try {
+        const availableCustomers = await getAvailableCustomers(selectedBusiness.id);
+        setCustomers(availableCustomers);
+    } catch(error) {
+        toast({ title: 'Error', description: 'Failed to load available customers.', variant: 'destructive' });
+    } finally {
+        setIsFetchingCustomers(false);
+    }
+  }, [selectedBusiness, toast]);
 
   useEffect(() => {
     if (!loading && role !== 'admin') {
       toast({ title: 'Unauthorized', description: 'You are not allowed to access this page.', variant: 'destructive' });
       router.replace('/dashboard');
     }
-    const fetchData = async () => {
-        setIsFetchingCustomers(true);
-        try {
-            // Optimized to fetch only customers without active loans
-            const availableCustomers = await getAvailableCustomers();
-            setCustomers(availableCustomers);
-        } catch(error) {
-            toast({ title: 'Error', description: 'Failed to load available customers.', variant: 'destructive' });
-        } finally {
-            setIsFetchingCustomers(false);
-        }
-    }
-    if (role === 'admin') {
+    
+    if (role === 'admin' && selectedBusiness) {
       fetchData();
     }
-  }, [role, loading, router, toast]);
+  }, [role, loading, router, toast, selectedBusiness, fetchData]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -80,6 +82,10 @@ export default function LoanApplicationPage() {
   }, [customerId, customers]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!selectedBusiness?.id) {
+        toast({ title: 'Error', description: 'No business selected.', variant: 'destructive' });
+        return;
+    }
     setIsSubmitting(true);
     const customer = customers.find(c => c.id === values.customerId);
     if (!customer) {
@@ -90,6 +96,7 @@ export default function LoanApplicationPage() {
 
     const newLoanData = {
       ...values,
+      businessId: selectedBusiness.id,
       customerName: customer.name,
     };
     
@@ -107,7 +114,7 @@ export default function LoanApplicationPage() {
     }
   }
 
-  if (loading || role !== 'admin') {
+  if (loading || role !== 'admin' || !selectedBusiness) {
       return <div>Loading...</div>;
   }
 
@@ -124,7 +131,7 @@ export default function LoanApplicationPage() {
         <CardHeader>
           <CardTitle>New Loan Application</CardTitle>
           <CardDescription>
-            {selectedCustomer ? `Creating loan for ${selectedCustomer.name}` : 'First, select a customer from the list below.'}
+            {selectedCustomer ? `Creating loan for ${selectedCustomer.name}` : `First, select a customer from ${selectedBusiness.name}.`}
           </CardDescription>
         </CardHeader>
         <CardContent>

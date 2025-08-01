@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getCustomers, deleteCustomer, getLoans } from '@/lib/storage';
 import type { Customer } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,30 +18,33 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { role } = useAuth();
+  const { role, selectedBusiness } = useAuth();
   const { toast } = useToast();
   
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
+    if (!selectedBusiness?.id) return;
     try {
       setIsLoading(true);
-      const fetchedCustomers = await getCustomers();
+      const fetchedCustomers = await getCustomers(selectedBusiness.id);
       setCustomers(fetchedCustomers);
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to fetch customers.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedBusiness, toast]);
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+    if (selectedBusiness) {
+        fetchCustomers();
+    }
+  }, [selectedBusiness, fetchCustomers]);
 
   const handleDelete = async (customerId: string) => {
+    if (!selectedBusiness?.id) return;
     try {
-      // This logic is now handled by the storage function, which is more efficient.
-      await deleteCustomer(customerId);
-      await fetchCustomers(); // Refresh the list from Firestore
+      await deleteCustomer(selectedBusiness.id, customerId);
+      await fetchCustomers(); // Refresh the list
       toast({
           title: 'Customer Deleted',
           description: 'The customer has been successfully deleted.',
@@ -73,7 +76,7 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
-          <p className="text-muted-foreground">Manage your customer base.</p>
+          <p className="text-muted-foreground">Manage your customer base for {selectedBusiness?.name}.</p>
         </div>
         {(role === 'admin' || role === 'agent') && (
             <Button asChild>
@@ -155,7 +158,7 @@ export default function CustomersPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center">
-                    No customers found.
+                    No customers found for this business.
                   </TableCell>
                 </TableRow>
               )}

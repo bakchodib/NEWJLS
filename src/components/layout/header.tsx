@@ -3,12 +3,15 @@
 
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, User, Shield, Briefcase } from 'lucide-react';
+import { LogOut, User, Shield, Briefcase, ChevronsUpDown, Building, Check } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import type { Business } from '@/types';
 
 const getTitleFromPath = (path: string) => {
+  if (path.includes('/business/create')) return 'Create New Business';
   if (path.includes('/customers/register')) return 'Register Customer';
   if (path.includes('/customers/edit')) return 'Edit Customer';
   if (path.includes('/customers')) return 'Customers';
@@ -23,8 +26,39 @@ const getTitleFromPath = (path: string) => {
   return 'JLS FINACE LTD';
 };
 
+const BusinessSwitcher = () => {
+    const { businesses, selectedBusiness, setSelectedBusiness } = useAuth();
+
+    if (businesses.length <= 1) return null;
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-[200px] justify-between">
+                    <Building className="mr-2 h-4 w-4" />
+                    {selectedBusiness?.name || "Select Business"}
+                    <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[200px]" align="end">
+                <DropdownMenuGroup>
+                    {businesses.map((business) => (
+                        <DropdownMenuItem
+                            key={business.id}
+                            onSelect={() => setSelectedBusiness(business)}
+                        >
+                             <Check className={cn("mr-2 h-4 w-4", selectedBusiness?.id === business.id ? "opacity-100" : "opacity-0")} />
+                            {business.name}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
+
 export function Header({children}: {children?: React.ReactNode}) {
-  const { user, logout } = useAuth();
+  const { user, logout, role } = useAuth();
   const pathname = usePathname();
   const title = getTitleFromPath(pathname);
 
@@ -53,6 +87,7 @@ export function Header({children}: {children?: React.ReactNode}) {
       {children}
       <h1 className="text-xl font-semibold md:text-2xl">{title}</h1>
       <div className="ml-auto flex items-center gap-4">
+        {role === 'admin' && <BusinessSwitcher />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">

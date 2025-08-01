@@ -46,7 +46,7 @@ const formSchema = z.object({
 export default function RegisterCustomerPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { role, loading } = useAuth();
+  const { role, loading, selectedBusiness } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -82,6 +82,11 @@ export default function RegisterCustomerPage() {
   }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!selectedBusiness?.id) {
+        toast({ title: 'Error', description: 'No business selected.', variant: 'destructive' });
+        return;
+    }
+
     setIsSubmitting(true);
     toast({ title: 'Processing Images...', description: 'Please wait while we prepare the documents.' });
 
@@ -91,6 +96,7 @@ export default function RegisterCustomerPage() {
         const panImageDataUri = await fileToDataUri(values.panImage[0]);
 
         const newCustomer = {
+          businessId: selectedBusiness.id,
           name: values.name,
           phone: values.phone,
           address: values.address,
@@ -122,7 +128,7 @@ export default function RegisterCustomerPage() {
     }
   }
 
-  if (loading || role === 'customer') {
+  if (loading || role === 'customer' || !selectedBusiness) {
     return <div>Loading...</div>;
   }
 
@@ -131,7 +137,7 @@ export default function RegisterCustomerPage() {
       <Card>
         <CardHeader>
           <CardTitle>Register New Customer</CardTitle>
-          <CardDescription>Fill in the details below to add a new customer.</CardDescription>
+          <CardDescription>Fill in the details for {selectedBusiness.name}.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
